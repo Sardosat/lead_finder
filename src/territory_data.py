@@ -1,0 +1,87 @@
+"""
+Mappatura completa di tutti i 58 comuni della Città Metropolitana di Catania,
+suddivisi per macro-aree geografiche e con i relativi slug URL per le interrogazioni.
+"""
+
+CATANIA_MUNICIPALITIES = [
+    # 1. Area Metropolitana & Cintura Etnea
+    {"name": "Catania", "slug": "catania", "area": "Area Metropolitana"},
+    {"name": "Acireale", "slug": "acireale", "area": "Distretto Acese"},
+    {"name": "Misterbianco", "slug": "misterbianco", "area": "Polo Industriale Ovest"},
+    {"name": "Paternò", "slug": "paterno", "area": "Polo Industriale Ovest"},
+    {"name": "Caltagirone", "slug": "caltagirone", "area": "Calatino Sud"},
+    {"name": "Giarre", "slug": "giarre", "area": "Distretto Jonico Etneo"},
+    {"name": "Gravina di Catania", "slug": "gravina-di-catania", "area": "Area Metropolitana"},
+    {"name": "Aci Catena", "slug": "aci-catena", "area": "Distretto Acese"},
+    {"name": "Mascalucia", "slug": "mascalucia", "area": "Area Metropolitana"},
+    {"name": "Belpasso", "slug": "belpasso", "area": "Polo Industriale Ovest"},
+    {"name": "San Giovanni La Punta", "slug": "san-giovanni-la-punta", "area": "Area Metropolitana"},
+    {"name": "Biancavilla", "slug": "biancavilla", "area": "Polo Industriale Ovest"},
+    {"name": "Adrano", "slug": "adrano", "area": "Polo Industriale Ovest"},
+    {"name": "Aci Castello", "slug": "aci-castello", "area": "Area Metropolitana"},
+    {"name": "Riposto", "slug": "riposto", "area": "Distretto Jonico Etneo"},
+    {"name": "Scordia", "slug": "scordia", "area": "Piana di Catania"},
+    {"name": "Bronte", "slug": "bronte", "area": "Polo Industriale Ovest"},
+    {"name": "Palagonia", "slug": "palagonia", "area": "Piana di Catania"},
+    {"name": "Grammichele", "slug": "grammichele", "area": "Calatino Sud"},
+    {"name": "Randazzo", "slug": "randazzo", "area": "Distretto Jonico Etneo"},
+    {"name": "Trecastagni", "slug": "trecastagni", "area": "Area Metropolitana"},
+    {"name": "Pedara", "slug": "pedara", "area": "Area Metropolitana"},
+    {"name": "San Gregorio di Catania", "slug": "san-gregorio-di-catania", "area": "Area Metropolitana"},
+    {"name": "Valverde", "slug": "valverde", "area": "Area Metropolitana"},
+    {"name": "Viagrande", "slug": "viagrande", "area": "Area Metropolitana"},
+    {"name": "Motta Sant'Anastasia", "slug": "motta-sant-anastasia", "area": "Polo Industriale Ovest"},
+    {"name": "Nicolosi", "slug": "nicolosi", "area": "Area Metropolitana"},
+    {"name": "Aci Sant'Antonio", "slug": "aci-sant-antonio", "area": "Distretto Acese"},
+    {"name": "Aci Bonaccorsi", "slug": "aci-bonaccorsi", "area": "Distretto Acese"},
+    {"name": "Fiumefreddo di Sicilia", "slug": "fiumefreddo-di-sicilia", "area": "Distretto Jonico Etneo"},
+    {"name": "Mascali", "slug": "mascali", "area": "Distretto Jonico Etneo"},
+    {"name": "Santa Venerina", "slug": "santa-venerina", "area": "Distretto Acese"},
+    {"name": "Zafferana Etnea", "slug": "zafferana-etnea", "area": "Distretto Jonico Etneo"},
+    {"name": "Castiglione di Sicilia", "slug": "castiglione-di-sicilia", "area": "Distretto Jonico Etneo"},
+    {"name": "Linguaglossa", "slug": "linguaglossa", "area": "Distretto Jonico Etneo"},
+    {"name": "Milo", "slug": "milo", "area": "Distretto Jonico Etneo"},
+    {"name": "Sant'Alfio", "slug": "sant-alfio", "area": "Distretto Jonico Etneo"},
+    {"name": "Piedimonte Etneo", "slug": "piedimonte-etneo", "area": "Distretto Jonico Etneo"},
+    {"name": "Calatabiano", "slug": "calatabiano", "area": "Distretto Jonico Etneo"},
+    {"name": "Maletto", "slug": "maletto", "area": "Polo Industriale Ovest"},
+    {"name": "Maniace", "slug": "maniace", "area": "Polo Industriale Ovest"},
+    {"name": "Ragalna", "slug": "ragalna", "area": "Polo Industriale Ovest"},
+    {"name": "Santa Maria di Licodia", "slug": "santa-maria-di-licodia", "area": "Polo Industriale Ovest"},
+    {"name": "Camporotondo Etneo", "slug": "camporotondo-etneo", "area": "Area Metropolitana"},
+    {"name": "San Pietro Clarenza", "slug": "san-pietro-clarenza", "area": "Area Metropolitana"},
+    {"name": "Sant'Agata li Battiati", "slug": "sant-agata-li-battiati", "area": "Area Metropolitana"},
+    {"name": "Tremestieri Etneo", "slug": "tremestieri-etneo", "area": "Area Metropolitana"},
+    {"name": "Ramacca", "slug": "ramacca", "area": "Piana di Catania"},
+    {"name": "Militello in Val di Catania", "slug": "militello-in-val-di-catania", "area": "Piana di Catania"},
+    {"name": "Raddusa", "slug": "raddusa", "area": "Piana di Catania"},
+    {"name": "Castel di Iudica", "slug": "castel-di-iudica", "area": "Piana di Catania"},
+    {"name": "Mineo", "slug": "mineo", "area": "Calatino Sud"},
+    {"name": "Vizzini", "slug": "vizzini", "area": "Calatino Sud"},
+    {"name": "Licodia Eubea", "slug": "licodia-eubea", "area": "Calatino Sud"},
+    {"name": "San Cono", "slug": "san-cono", "area": "Calatino Sud"},
+    {"name": "San Michele di Ganzaria", "slug": "san-michele-di-ganzaria", "area": "Calatino Sud"},
+    {"name": "Mirabella Imbaccari", "slug": "mirabella-imbaccari", "area": "Calatino Sud"},
+    {"name": "Mazzarrone", "slug": "mazzarrone", "area": "Calatino Sud"},
+]
+
+# Query mirate per coprire ogni angolo delle 4 nicchie impiantistiche
+SEARCH_QUERIES = [
+    # HVAC & Climatizzazione
+    {"query": "climatizzatori", "niche": "HVAC & Climatizzazione"},
+    {"query": "condizionatori", "niche": "HVAC & Climatizzazione"},
+    {"query": "caldaie", "niche": "HVAC & Climatizzazione"},
+    {"query": "assistenza-caldaie", "niche": "HVAC & Climatizzazione"},
+    {"query": "riscaldamento-impianti", "niche": "HVAC & Climatizzazione"},
+    # Termoidraulica & Idraulica
+    {"query": "termoidraulica", "niche": "Termoidraulica & Idraulica"},
+    {"query": "idraulici", "niche": "Termoidraulica & Idraulica"},
+    {"query": "impianti-idraulici", "niche": "Termoidraulica & Idraulica"},
+    # Impianti Elettrici
+    {"query": "elettricisti", "niche": "Impianti Elettrici"},
+    {"query": "impianti-elettrici", "niche": "Impianti Elettrici"},
+    # Impiantistica Generale
+    {"query": "impianti-industriali", "niche": "Impiantistica Generale"},
+    {"query": "manutenzione-impianti", "niche": "Impiantistica Generale"},
+]
+
