@@ -16,7 +16,7 @@ Author: Antigravity Marketing Engine
   - **Starter**: 149 €/mese (fino a 100 chiamate/mese, 1 numero dedicato, inoltro WhatsApp).
   - **Pro (Best Seller)**: 249 €/mese (o 239 €/mese con fatturazione annuale, fino a 350 chiamate/mese, multi-tecnico, integrazione gestionale, pre-diagnosi guasti avanzata).
   - **Network / Enterprise**: Su misura per consorzi, reti d'imprese e centri assistenza autorizzati (CAT).
-  - **Convenzione Speciale CNA Catania**: Sconto dedicato del 15% sui canoni per i soci CNA già iscritti, oppure pacchetto combinato *"TecnicoLIVE + Quota Tesseramento CNA Catania"* per le ditte non ancora associate.
+  - **Convenzione Speciale CNA Catania**: Sconto dedicato del 15% sui canoni per i soci CNA già iscritti, oppure pacchetto combinato *"TecnicoLIVE + Quota Tesseramento CNA Catania"* per le ditte non ancora associate (che include una forte scontistica dedicata sulla quota d'iscrizione a CNA per tutto il primo anno).
 
 ---
 
@@ -68,7 +68,7 @@ Author: Antigravity Marketing Engine
 
 ## 6. Key Differentiators & Moat
 
-- 🛡️ **Partnership Istituzionale Esclusiva CNA Catania**: Sede condivisa a Piazza dei Martiri 8, Catania. Capacità di unire l'innovazione software ai vantaggi del sistema associativo, della rappresentanza sindacale e della compliance normativa (CITEL, F-Gas).
+- 🛡️ **Partnership Istituzionale Esclusiva CNA Catania**: Sede condivisa a Piazza dei Martiri 8, Catania. Capacità di unire l'innovazione software ai vantaggi del sistema associativo, della rappresentanza sindacale, della compliance normativa (CITEL, F-Gas) e della scontistica riservata sulla quota d'iscrizione del primo anno per i nuovi soci.
 - 🧠 **Addestramento Verticale Termoidraulico**: Riconoscimento immediato di brand di caldaie, pompe di calore e condizionatori, codici di errore (F28, E01, ecc.), tipologie di guasto e urgenze idrauliche.
 - ⚡ **Latenza Conversazionale Ultra-Bassa (<600ms)**: Conversazione naturale senza i fastidiosi silenzi dei bot generici; comprensione perfetta di toponomastica locale (Ognina, Librino, San Giovanni La Punta, Aci Castello, ecc.).
 - 📲 **Inoltro WhatsApp Istantaneo**: Il tecnico riceve in tempo reale il riassunto dell'intervento, audio registrato e recapito del cliente pronto da chiamare con un click.
@@ -82,7 +82,7 @@ Author: Antigravity Marketing Engine
 2. **"I miei clienti vogliono parlare solo con me"**
    - *Risposta*: *"I clienti in emergenza vogliono prima di tutto essere ascoltati subito e sapere che qualcuno si sta occupando del loro guasto. Trovare un assistente professionale che apre subito la scheda è 10 volte meglio di un telefono muto che squilla a vuoto."*
 3. **"Costa troppo per la mia ditta"**
-   - *Risposta*: *"Con la convenzione CNA costa circa 7 € al giorno. Basta salvare un solo intervento al mese per coprire il costo di tutto l'anno. Il resto è tutto guadagno recuperato."*
+   - *Risposta*: *"Con la convenzione CNA costa circa 7 € al giorno, e la scontistica speciale sulla quota d'iscrizione a CNA del primo anno va ad ammortizzare istantaneamente l'investimento. Inoltre, basta salvare un solo intervento al mese per coprire il costo di tutto l'anno. Il resto è tutto guadagno recuperato."*
 4. **"L'intelligenza artificiale parla come un robot e sbaglia"**
    - *Risposta*: *"Facciamo una prova adesso: le invio il numero demo su WhatsApp, lo chiami lei stesso e veda come risponde in italiano naturale a qualsiasi domanda tecnica."*
 

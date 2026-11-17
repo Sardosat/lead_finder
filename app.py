@@ -195,7 +195,7 @@ with tab_leads:
                 pitch_text = selected_row.get("Pitch_Commerciale_TecnicoLIVE") or (
                     f"Buongiorno {selected_row.get('Company Name')}, vi contattiamo da TecnicoLIVE. "
                     f"In qualità di azienda di {selected_row.get('Nicchia_Target')} a {selected_row.get('City')}, "
-                    f"stiamo attivando la convenzione con CNA Catania per non perdere chiamate in cantiere e tesserarvi a condizioni agevolate."
+                    f"stiamo attivando la convenzione con CNA Catania per non perdere chiamate in cantiere e sbloccare la scontistica dedicata sulla quota d'iscrizione CNA del primo anno."
                 )
                 st.text_area("Copia il testo:", value=pitch_text, height=100)
 
@@ -238,7 +238,10 @@ with tab_trends:
         I temi normativi che spingono installatori e titolari ad automatizzarsi e associarsi a CNA:
         """)
 
-        with st.expander("📋 Obbligo Catasto Impianti Termici Sicilia (CITEL)", expanded=True):
+        with st.expander("🎟️ Scontistica Quota Iscrizione 1° Anno CNA Catania", expanded=True):
+            st.write("La convenzione ufficiale prevede una scontistica riservata sulla quota di tesseramento per il primo anno a CNA Catania. Rappresenta la leva finanziaria decisiva per gli impiantisti non associati, azzerando le barriere all'entrata e combinando la tutela sindacale, legale e fiscale all'innovazione dell'automazione vocale.")
+
+        with st.expander("📋 Obbligo Catasto Impianti Termici Sicilia (CITEL)"):
             st.write("In Sicilia è obbligatorio caricare telematicamente i rapporti di efficienza energetica. I tecnici lamentano ore perse la sera dopo il cantiere; l'assistente vocale TecnicoLIVE automatizza la raccolta dati durante la chiamata.")
 
         with st.expander("🔌 Transizione 5.0 & Pompe di Calore"):
@@ -300,31 +303,32 @@ Con la convenzione CNA Catania le abbiamo riservato l'assistente vocale AI che r
 Ha 5 minuti oggi alle 17:00 per fare una prova live chiamando il nostro numero test?"
         """, language="markdown")
 
-        st.markdown("#### Script Telefonico 2: Aziende NON Associate (Leva Doppio Valore)")
+        st.markdown("#### Script Telefonico 2: Aziende NON Associate (Leva Sconto 1° Anno CNA + TecnicoLIVE)")
         st.code("""
 Operatore: "Buongiorno [Nome Titolare], chiamo da TecnicoLIVE. Stiamo attivando nella zona di [Comune] la convenzione esclusiva con CNA Catania per gli impiantisti.
 Abbiamo notato che non siete ancora registrati negli elenchi soci CNA: per supportare le ditte del territorio abbiamo creato un pacchetto speciale.
-Vi attiviamo l'assistente vocale per recuperare tutte le chiamate che perdete mentre siete sui furgoni e, contemporaneamente, sblocchiamo il vostro tesseramento agevolato a CNA Catania con tutti i vantaggi fiscali e legali di categoria.
-Chi si occupa in azienda di decidere sulle chiamate e sulla gestione dei clienti?"
+Vi attiviamo l'assistente vocale per recuperare tutte le chiamate che perdete mentre siete sui furgoni e, contemporaneamente, sblocchiamo il vostro tesseramento a CNA Catania con la scontistica speciale sulla quota d'iscrizione del primo anno, garantendovi tutela legale, fiscale e agevolazioni CITEL e F-Gas.
+Chi si occupa in azienda di decidere sulla gestione delle chiamate e delle convenzioni?"
         """, language="markdown")
 
     with sub_t2:
         st.markdown("#### Messaggi WhatsApp Brevi ad Alto Tasso di Risposta")
         st.info("💡 Suggerimento: inviare tra le 12:30 e le 14:00 o dopo le 18:00, quando il tecnico ha terminato gli interventi sul campo.")
 
-        st.markdown("**Opzione 1: Per Caldaisti e Idraulici**")
+        st.markdown("**Opzione 1: Per Caldaisti e Idraulici (Doppio Risparmio)**")
         st.code("""
-Ciao [Nome], ti scrivo da TecnicoLIVE (partner CNA Catania). 
+Ciao [Nome], ti scrivo da TecnicoLIVE in partnership con CNA Catania. 
 Quante chiamate di nuovi clienti perdi ogni settimana mentre sei sotto una caldaia o in cantiere con le mani occupate?
 Il nostro assistente vocale AI risponde per te in 3 secondi, fa la pre-diagnosi del guasto e ti prenota l'intervento su WhatsApp.
+In più, con la convenzione hai diritto alla scontistica riservata sulla quota d'iscrizione del primo anno a CNA Catania e 7 giorni di prova gratuita del centralino.
 👉 Ascolta come risponde con la voce di un tecnico vero: https://www.tecnicolive.it
-Possiamo attivarti una prova gratuita di 7 giorni con la convenzione CNA. Ti lascio il link per testarlo?
+Ti invio il link per attivare la prova senza impegno?
         """, language="markdown")
 
-        st.markdown("**Opzione 2: Follow-up Veloce**")
+        st.markdown("**Opzione 2: Follow-up Veloce con Leva Tesseramento**")
         st.code("""
 [Nome], una chiamata persa è un cliente regalato alla concorrenza. 
-In provincia di Catania abbiamo già attivato oltre 60 colleghi impiantisti che non perdono più un lavoro. 
+In provincia di Catania abbiamo già attivato oltre 60 colleghi impiantisti che non perdono più un lavoro e hanno sbloccato la quota agevolata del primo anno con CNA Catania. 
 Se hai 2 minuti ti faccio squillare il centralino dimostrativo per vedere come prende l'appuntamento da solo.
         """, language="markdown")
 
@@ -381,7 +385,7 @@ Se hai 2 minuti ti faccio squillare il centralino dimostrativo per vedere come p
         with st.expander("🗣️ Obiezione 3: 'Costa troppo'"):
             st.markdown("""
             **Risposta vincente:**  
-            *"Con un canone convenzionato CNA di circa 7€ al giorno, basta recuperare **un solo intervento al mese** (che vale in media 120-250€) per ripagarsi interamente il sistema per tutto l'anno. Tutto il resto è guadagno puro che oggi state lasciando ai concorrenti."*
+            *"Con la convenzione CNA il costo è di circa 7€ al giorno, e grazie alla scontistica riservata sulla quota d'iscrizione del primo anno a CNA Catania, il risparmio associativo va a compensare immediatamente l'investimento iniziale. Inoltre, basta recuperare **un solo intervento al mese** (che vale in media 120-250€) per ripagarsi interamente il sistema per tutto l'anno. Tutto il resto è guadagno puro che oggi state lasciando ai concorrenti."*
             """)
 
         with st.expander("🗣️ Obiezione 4: 'L'Intelligenza Artificiale sbaglia / sembra un robot finto'"):

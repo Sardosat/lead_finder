@@ -221,7 +221,7 @@ def generate_outbound_pitch(comp_name: str, niche: str, stato_cna: str, city: st
         return (
             f"Buongiorno {comp_name}, vi contattiamo da TecnicoLIVE. "
             f"Stiamo supportando le aziende di {niche} a {city} con la convenzione ufficiale CNA Catania: "
-            f"attiviamo l'assistente vocale per recuperare gli interventi persi e sblocchiamo il tesseramento CNA a condizioni agevolate."
+            f"attiviamo l'assistente vocale per recuperare gli interventi persi e sblocchiamo il tesseramento CNA con una scontistica dedicata sulla quota d'iscrizione del primo anno."
         )
 
 
