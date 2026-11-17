@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json.schemastore.org/mcp-settings.json",
+  "mcpServers": {
+    "apify": {
+      "command": "npx",
+      "args": ["-y", "@apify/mcp-server"],
+      "env": {
+        "APIFY_TOKEN": "${APIFY_TOKEN}"
+      },
+      "permissions": {
+        "read": "allow",
+        "write": "ask",
+        "execute_actor": "ask"
+      },
+      "spending_limit": {
+        "currency": "USD",
+        "max_monthly_budget": 5.0,
+        "initial_free_tier_ceiling": 5.0,
+        "enforce_spending_cap": true,
+        "alert_at_usd": 4.5,
+        "policy": "Block runs exceeding $5.00 free tier credit without manual user approval in Apify Console"
+      }
+    },
+    "firecrawl": {
+      "command": "npx",
+      "args": ["-y", "@mendable/firecrawl-mcp-server"],
+      "env": {
+        "FIRECRAWL_API_KEY": "${FIRECRAWL_API_KEY}"
+      },
+      "permissions": {
+        "scrape": "allow",
+        "crawl": "ask",
+        "write": "ask"
+      }
+    },
+    "google-news-trends": {
+      "command": "npx",
+      "args": ["-y", "google-news-trends-mcp"],
+      "env": {},
+      "permissions": {
+        "read": "allow",
+        "search": "allow",
+        "write": "ask"
+      }
+    },
+    "xpoz": {
+      "command": "npx",
+      "args": ["-y", "@xpoz/mcp-server"],
+      "env": {
+        "XPOZ_API_KEY": "${XPOZ_API_KEY}"
+      },
+      "permissions": {
+        "read": "allow",
+        "write": "ask"
+      }
+    },
+    "hubspot": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-hubspot"],
+      "env": {
+        "HUBSPOT_ACCESS_TOKEN": "${HUBSPOT_ACCESS_TOKEN}"
+      },
+      "permissions": {
+        "read_contacts": "allow",
+        "create_list": "ask",
+        "update_contact": "ask",
+        "create_contact": "ask",
+        "write": "ask",
+        "delete": "ask"
+      }
+    },
+    "klaviyo": {
+      "command": "npx",
+      "args": ["-y", "klaviyo-mcp-server"],
+      "env": {
+        "KLAVIYO_API_KEY": "${KLAVIYO_API_KEY}"
+      },
+      "permissions": {
+        "read_campaigns": "allow",
+        "read_segments": "allow",
+        "create_segment": "ask",
+        "send_campaign": "ask",
+        "write": "ask",
+        "delete": "ask"
+      }
+    }
+  },
+  "security_policy": {
+    "disallow_global_wildcards": ["mcp(*)", "*"],
+    "default_mutation_action": "ask",
+    "require_human_confirmation": true,
+    "human_in_the_loop_mandatory": [
+      "hubspot:create_list",
+      "hubspot:update_contact",
+      "klaviyo:send_campaign",
+      "klaviyo:create_segment",
+      "apify:execute_actor"
+    ]
+  }
+}
