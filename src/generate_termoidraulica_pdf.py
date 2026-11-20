@@ -1,9 +1,12 @@
 """
-Generatore Report PDF Esecutivo: Censimento Impiantistica & Termoidraulica Catania & Provincia
-Compilazione tramite Playwright Chromium in PDF ad alta definizione A4.
+Generatore Report PDF Esecutivo Completo per il CEO
+Censimento Integrale Impiantistica & Termoidraulica Catania & Provincia (Tutti i 58 Comuni)
+Include tutte le 696 aziende qualificate con P.IVA, Stato CNA, ICP Score e Icebreaker 1-to-1.
 """
 
 import asyncio
+import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -18,6 +21,7 @@ from playwright.async_api import async_playwright
 from src.config import DATA_DIR, REPORTS_DIR
 
 PDF_OUTPUT_PATH = REPORTS_DIR / "Report_Termoidraulica_Catania_Provincia_CNA.pdf"
+BRAIN_DIR = Path(r"C:\Users\nicol\.gemini\antigravity\brain\466c6750-da56-4657-9200-3e9d190836db")
 
 
 def build_termoidraulica_html(df: pd.DataFrame) -> str:
@@ -25,7 +29,6 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
     
     # Metriche Telefoniche
     cellulari = len(df[df["Phone"].str.contains(r"\+393", na=False)])
-    fissi = totale - cellulari
     perc_cell = round((cellulari / totale * 100), 1) if totale > 0 else 0
     
     # Metriche Fiscali
@@ -47,9 +50,9 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
     area_counts = area_series.value_counts().to_dict()
     
     # Top Comuni
-    top_comuni = df["City"].value_counts().head(8).to_dict()
+    top_comuni = df["City"].value_counts().head(10).to_dict()
 
-    # Marchi rilevati count
+    # Marchi rilevati
     marchi_stats = {
         "Vaillant": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Vaillant", na=False)]),
         "Baxi": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Baxi", na=False)]),
@@ -65,129 +68,131 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
         df_sorted["ICP_Score_Num"] = pd.to_numeric(df_sorted["ICP_Score"], errors="coerce").fillna(0)
         df_sorted.sort_values(by=["ICP_Score_Num"], ascending=False, inplace=True)
     
-    # Prendi fino a 40 lead per il catalogo esecutivo dettagliato nel PDF
-    top_leads = df_sorted.head(45).to_dict(orient="records")
+    # TUTTE le lead per il CEO
+    all_leads = df_sorted.to_dict(orient="records")
 
     html = f"""<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>Report Termoidraulica Catania & Provincia - CNA & TecnicoLIVE</title>
+    <title>Censimento Ufficiale Termoidraulica Catania & Provincia - Ad Uso del CEO</title>
     <style>
         @page {{
             size: A4 portrait;
-            margin: 10mm 12mm 12mm 12mm;
-            @bottom-right {{
-                content: "Pagina " counter(page);
-                font-family: 'Helvetica Neue', Arial, sans-serif;
-                font-size: 8pt;
+            margin: 10mm 10mm 12mm 10mm;
+            @top-right {{
+                content: "DOCUMENTO RISERVATO DIREZIONALE - TECNICOLIVE & CNA CATANIA";
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 6.5pt;
+                font-weight: 700;
+                color: #A0AEC0;
+            }}
+            @bottom-left {{
+                content: "TecnicoLIVE 2.0 • Sinergia Rete d'Imprese • Piazza dei Martiri 8, Catania";
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 7pt;
                 color: #718096;
+            }}
+            @bottom-right {{
+                content: "Pagina " counter(page) " di " counter(pages);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                font-size: 7.5pt;
+                font-weight: 600;
+                color: #4A5568;
             }}
         }}
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            color: #2D3748;
+            color: #1A202C;
             background-color: #FFFFFF;
             margin: 0;
             padding: 0;
-            line-height: 1.4;
-            font-size: 9pt;
+            line-height: 1.35;
+            font-size: 8pt;
         }}
-        .header {{
-            border-bottom: 2.5px solid #005A9E;
-            padding-bottom: 10px;
-            margin-bottom: 14px;
+        
+        .cover-page {{
+            page-break-after: always;
+            padding-top: 20px;
+        }}
+        
+        .header-box {{
+            border-bottom: 3px solid #005A9E;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
         }}
         .brand-title {{
-            font-size: 18pt;
-            font-weight: 800;
+            font-size: 20pt;
+            font-weight: 900;
             color: #005A9E;
             letter-spacing: -0.5px;
             margin: 0;
+            text-transform: uppercase;
         }}
         .brand-subtitle {{
-            font-size: 9pt;
-            font-weight: 600;
-            color: #4A5568;
-            margin-top: 3px;
-        }}
-        .header-meta {{
-            text-align: right;
-            font-size: 8pt;
-            color: #718096;
-        }}
-        
-        .badge-vip {{
-            background-color: #FEFCBF;
-            color: #744210;
-            border: 1px solid #D69E2E;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 10.5pt;
             font-weight: 700;
-            font-size: 7.5pt;
-        }}
-        .badge-warm {{
-            background-color: #EDF2F7;
             color: #2D3748;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 7.5pt;
+            margin-top: 4px;
         }}
-        .badge-cna {{
-            background-color: #EBF8FF;
+        .header-badge {{
+            background: #EBF8FF;
+            border: 1px solid #3182CE;
             color: #2B6CB0;
-            border: 1px solid #90CDF4;
-            padding: 2px 6px;
+            padding: 4px 10px;
             border-radius: 4px;
-            font-weight: 700;
-            font-size: 7.5pt;
+            font-weight: 800;
+            font-size: 8pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }}
         
         .kpi-grid {{
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 16px;
         }}
         .kpi-card {{
             background: #F7FAFC;
-            border: 1px solid #E2E8F0;
+            border: 1.5px solid #E2E8F0;
             border-radius: 6px;
-            padding: 10px 8px;
+            padding: 10px 6px;
             text-align: center;
         }}
         .kpi-num {{
-            font-size: 16pt;
-            font-weight: 800;
+            font-size: 17pt;
+            font-weight: 900;
             color: #1A202C;
-            line-height: 1.1;
+            line-height: 1;
         }}
         .kpi-label {{
-            font-size: 7.5pt;
-            font-weight: 600;
-            color: #718096;
+            font-size: 7pt;
+            font-weight: 700;
+            color: #4A5568;
             text-transform: uppercase;
             margin-top: 4px;
         }}
         .kpi-sub {{
-            font-size: 7pt;
-            color: #38A169;
+            font-size: 6.5pt;
+            color: #2B6CB0;
             font-weight: 600;
             margin-top: 2px;
         }}
         
         .section-title {{
-            font-size: 11pt;
-            font-weight: 700;
+            font-size: 10.5pt;
+            font-weight: 800;
             color: #005A9E;
-            border-bottom: 1.5px solid #E2E8F0;
-            padding-bottom: 4px;
+            border-bottom: 1.5px solid #CBD5E0;
+            padding-bottom: 3px;
             margin-top: 14px;
             margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }}
         
         .cols-2 {{
@@ -197,204 +202,301 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             margin-bottom: 14px;
         }}
         
-        .table-custom {{
+        .table-summary {{
             width: 100%;
             border-collapse: collapse;
-            font-size: 8pt;
-            margin-top: 6px;
-            margin-bottom: 12px;
+            font-size: 7.5pt;
         }}
-        .table-custom th {{
+        .table-summary th {{
             background-color: #EDF2F7;
             color: #2D3748;
             font-weight: 700;
             text-align: left;
-            padding: 6px 8px;
+            padding: 5px 6px;
             border-bottom: 1.5px solid #CBD5E0;
-            font-size: 7.5pt;
-            text-transform: uppercase;
         }}
-        .table-custom td {{
-            padding: 5px 8px;
+        .table-summary td {{
+            padding: 4px 6px;
             border-bottom: 1px solid #E2E8F0;
-            vertical-align: middle;
-        }}
-        .table-custom tr:nth-child(even) {{
-            background-color: #F7FAFC;
         }}
         
-        .icebreaker-box {{
+        .strategic-box {{
             background: #F0FFF4;
-            border-left: 3px solid #38A169;
-            padding: 4px 8px;
-            font-size: 7.5pt;
+            border: 1.5px solid #9AE6B4;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 8pt;
+            margin-bottom: 14px;
             color: #22543D;
-            margin-top: 3px;
-            font-style: italic;
         }}
         
-        .footer-note {{
-            margin-top: 18px;
-            border-top: 1px solid #E2E8F0;
-            padding-top: 8px;
-            font-size: 7.5pt;
-            color: #718096;
-            text-align: center;
+        /* TABELLA INTEGRALE DEI 696 LEAD */
+        .table-leads {{
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7pt;
+            margin-top: 8px;
+        }}
+        thead {{
+            display: table-header-group;
+        }}
+        tr {{
+            page-break-inside: avoid;
+        }}
+        .table-leads th {{
+            background-color: #005A9E;
+            color: #FFFFFF;
+            font-weight: 800;
+            text-align: left;
+            padding: 5px 6px;
+            font-size: 6.8pt;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }}
+        .table-leads td {{
+            padding: 4.5px 6px;
+            border-bottom: 1px solid #E2E8F0;
+            vertical-align: top;
+        }}
+        .table-leads tr:nth-child(even) {{
+            background-color: #F8FAFC;
+        }}
+        
+        .badge-vip {{
+            background-color: #FEFCBF;
+            color: #744210;
+            border: 1px solid #D69E2E;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: 800;
+            font-size: 6.5pt;
+            display: inline-block;
+        }}
+        .badge-warm {{
+            background-color: #EDF2F7;
+            color: #2D3748;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 6.5pt;
+            display: inline-block;
+        }}
+        .badge-target {{
+            background-color: #EBF8FF;
+            color: #2B6CB0;
+            border: 1px solid #90CDF4;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 6.5pt;
+            display: inline-block;
+        }}
+        .badge-socio {{
+            background-color: #C6F6D5;
+            color: #22543D;
+            border: 1px solid #68D391;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: 700;
+            font-size: 6.5pt;
+            display: inline-block;
+        }}
+        
+        .icebreaker-mini {{
+            background: #F0FFF4;
+            border-left: 2px solid #38A169;
+            padding: 3px 5px;
+            font-size: 6.5pt;
+            color: #22543D;
+            line-height: 1.25;
+            font-style: italic;
+            border-radius: 0 3px 3px 0;
         }}
     </style>
 </head>
 <body>
 
-    <!-- HEADER ISTITUZIONALE -->
-    <div class="header">
-        <div>
-            <div class="brand-title">TecnicoLIVE &bull; Report Territoriale Termoidraulica</div>
-            <div class="brand-subtitle">Censimento & Qualificazione Impiantistica &bull; Città Metropolitana di Catania &bull; Convenzione CNA</div>
+    <!-- ========================================== -->
+    <!-- PAGINA 1: EXECUTIVE BRIEFING PER IL CEO    -->
+    <!-- ========================================== -->
+    <div class="cover-page">
+        <div class="header-box">
+            <div>
+                <div class="brand-title">TecnicoLIVE &bull; Executive Report</div>
+                <div class="brand-subtitle">Censimento & Qualificazione Integrale Impiantistica Termoidraulica & Clima</div>
+                <div style="font-size: 8pt; color: #4A5568; margin-top: 3px;">
+                    Ambito Territoriale: <strong>Città Metropolitana di Catania (58 Comuni)</strong> &bull; Partnership Istituzionale: <strong>CNA Catania</strong>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div class="header-badge">Documento Riservato CEO</div>
+                <div style="font-size: 7.5pt; color: #718096; margin-top: 4px;">Data: <strong>Novembre 2026</strong></div>
+                <div style="font-size: 7.5pt; color: #718096;">Sede: <strong>Piazza dei Martiri 8, Catania</strong></div>
+            </div>
         </div>
-        <div class="header-meta">
-            <div>Data Report: <strong>Novembre 2026</strong></div>
-            <div>Sede CNA: <strong>Piazza dei Martiri 8, Catania</strong></div>
-            <div>Architettura: <strong>Clay.com Intelligence + RSK System</strong></div>
+
+        <!-- KPI CRUSCOTTO DIREZIONALE -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-num">{totale}</div>
+                <div class="kpi-label">Imprese Censite</div>
+                <div class="kpi-sub">100% Catania & Prov.</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-num" style="color: #2B6CB0;">{target_cna}</div>
+                <div class="kpi-label">Target Non Associati</div>
+                <div class="kpi-sub">Leva Quota 1° Anno CNA</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-num" style="color: #DD6B20;">{tier_a}</div>
+                <div class="kpi-label">Tier A 🔥 VIP</div>
+                <div class="kpi-sub">Score ICP &ge; 80 / 100</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-num" style="color: #4A5568;">{tier_b}</div>
+                <div class="kpi-label">Tier B 🟡 Warm</div>
+                <div class="kpi-sub">Audience Meta Ads RSK</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-num" style="color: #2F855A;">{piva_valide}</div>
+                <div class="kpi-label">P.IVA Validate Luhn</div>
+                <div class="kpi-sub">{perc_piva}% Fiscale Certificato</div>
+            </div>
+        </div>
+
+        <!-- NOTA STRATEGICA PER IL CEO -->
+        <div class="strategic-box">
+            <strong>🎯 Sintesi Esecutiva per la Direzione Generale:</strong>
+            <p style="margin: 4px 0 0 0;">
+                Il presente documento raccoglie il censimento esaustivo di tutte le <strong>{totale} aziende di termoidraulica, assistenza caldaie e climatizzazione</strong> operanti nell'area etnea e provinciale. 
+                Ben <strong>{target_cna} ditte ({round(target_cna/totale*100, 1)}%) risultano non ancora associate a CNA Catania</strong>: costituiscono l'obiettivo commerciale primario per l'offerta combinata:
+                <em>Attivazione Assistente Vocale AI TecnicoLIVE + Quota d'iscrizione del 1° anno a CNA Catania scontata</em>. 
+                Le <strong>{tier_a} aziende di Tier A (VIP 🔥)</strong> dispongono di requisiti tecnici di prim'ordine (P.IVA validata con Luhn, telefoni verificati e marchi compatibili come Buderus, Vaillant, Baxi e Bosch) e sono pronte per il contatto outbound immediato con gli icebreaker generati su misura.
+            </p>
+        </div>
+
+        <!-- PROIEZIONI E DISTRIBUZIONE TERRITORIALE -->
+        <div class="cols-2">
+            <div>
+                <div class="section-title">1. Ripartizione Macro-Aree Provinciali</div>
+                <table class="table-summary">
+                    <thead>
+                        <tr>
+                            <th>Comprensorio Geografico</th>
+                            <th style="text-align: right;">Imprese</th>
+                            <th style="text-align: right;">Quota %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {"".join([f'''
+                        <tr>
+                            <td><strong>{area}</strong></td>
+                            <td style="text-align: right; font-weight: 700;">{count}</td>
+                            <td style="text-align: right; color: #718096;">{round(count/totale*100, 1)}%</td>
+                        </tr>
+                        ''' for area, count in sorted(area_counts.items(), key=lambda x: x[1], reverse=True)])}
+                    </tbody>
+                </table>
+            </div>
+
+            <div>
+                <div class="section-title">2. Copertura Marchi Assistiti dall'AI</div>
+                <table class="table-summary">
+                    <thead>
+                        <tr>
+                            <th>Manuale Tecnico Integrato nell'AI</th>
+                            <th style="text-align: right;">Ditte Specializzate</th>
+                            <th style="text-align: right;">Copertura</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {"".join([f'''
+                        <tr>
+                            <td><strong>{m_name}</strong> (Diagnosi Guasti H24)</td>
+                            <td style="text-align: right; font-weight: 700;">{m_cnt}</td>
+                            <td style="text-align: right; color: #2B6CB0;">{round(m_cnt/totale*100, 1)}%</td>
+                        </tr>
+                        ''' for m_name, m_cnt in sorted(marchi_stats.items(), key=lambda x: x[1], reverse=True)])}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- I 10 COMUNI A MAGGIOR DENSITA -->
+        <div class="section-title">3. I 10 Comuni a Più Alta Concentrazione Impiantistica</div>
+        <table class="table-summary" style="margin-bottom: 12px;">
+            <thead>
+                <tr>
+                    {"".join([f'<th style="text-align: center;">{c}</th>' for c in list(top_comuni.keys())])}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {"".join([f'<td style="text-align: center; font-size: 8.5pt; font-weight: 800; color: #005A9E;">{v} ditte</td>' for v in list(top_comuni.values())])}
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- INDICAZIONI OPERATIVE PER IL TEAM -->
+        <div style="background: #FFF5F5; border: 1.5px solid #FEB2B2; border-radius: 6px; padding: 8px 12px; font-size: 7.5pt; color: #9B2C2C;">
+            <strong>📋 Regola Operativa d'Ingaggio per i Due Collaboratori Umani:</strong><br>
+            I collaboratori non devono mai effettuare chiamate generiche o a freddo: ogni contatto deve avvenire scorrendo l'elenco sottostante in ordine di <strong>Tier A 🔥 VIP</strong>, leggendo fedelmente l'<strong>Icebreaker 1-to-1</strong> calibrato sul comune di appartenenza e sui marchi trattati dalla ditta.
         </div>
     </div>
 
-    <!-- CRUSCOTTO METRICHE SUPERIORI -->
-    <div class="kpi-grid">
-        <div class="kpi-card">
-            <div class="kpi-num">{totale}</div>
-            <div class="kpi-label">Ditte Rilevate</div>
-            <div class="kpi-sub">Catania & Provincia</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-num" style="color: #2B6CB0;">{target_cna}</div>
-            <div class="kpi-label">Target Non Associati</div>
-            <div class="kpi-sub">Leva Sconto 1° Anno CNA</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-num" style="color: #DD6B20;">{tier_a}</div>
-            <div class="kpi-label">Tier A 🔥 VIP</div>
-            <div class="kpi-sub">Score ICP &ge; 80 / 100</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-num">{cellulari}</div>
-            <div class="kpi-label">Cellulari Diretti (3xx)</div>
-            <div class="kpi-sub">{perc_cell}% WhatsApp Ready</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-num">{piva_valide}</div>
-            <div class="kpi-label">P.IVA Validate Luhn</div>
-            <div class="kpi-sub">{perc_piva}% Fiscale Verificato</div>
-        </div>
+    <!-- ========================================== -->
+    <!-- PAGINE 2+: CATALOGO INTEGRALE DELLE 696 LEAD -->
+    <!-- ========================================== -->
+    <div class="section-title" style="margin-top: 10px; margin-bottom: 6px;">
+        4. Catalogo Integrale Impianti Termoidraulici Catania & Provincia ({totale} Imprese)
+    </div>
+    <div style="font-size: 7.5pt; color: #718096; margin-bottom: 8px;">
+        Tutti i 696 lead ordinati per priorità decrescente (Tier A VIP 🔥, poi Tier B 🟡), completi di recapiti telefonici, P.IVA certificata, stato associativo CNA e gancio conversazionale 1-to-1 pronto da usare.
     </div>
 
-    <!-- DISTRIBUZIONE TERRITORIALE E MARCHI ASSISTITI -->
-    <div class="cols-2">
-        <div>
-            <div class="section-title">1. Ripartizione per Comprensorio Provinciale</div>
-            <table class="table-custom">
-                <thead>
-                    <tr>
-                        <th>Macro-Area Geografica</th>
-                        <th style="text-align: right;">Imprese Censite</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {"".join([f'''
-                    <tr>
-                        <td><strong>{area}</strong></td>
-                        <td style="text-align: right;">{count}</td>
-                    </tr>
-                    ''' for area, count in sorted(area_counts.items(), key=lambda x: x[1], reverse=True)[:6]])}
-                </tbody>
-            </table>
-        </div>
-        <div>
-            <div class="section-title">2. Copertura Marchi Caldaie & Clima Assistiti dall'AI</div>
-            <table class="table-custom">
-                <thead>
-                    <tr>
-                        <th>Marchio Compatibile TecnicoLIVE</th>
-                        <th style="text-align: right;">Ditte Specializzate</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {"".join([f'''
-                    <tr>
-                        <td><strong>{m_name}</strong> (Manuali Integrati)</td>
-                        <td style="text-align: right;"><span class="badge-warm">{m_cnt} ditte</span></td>
-                    </tr>
-                    ''' for m_name, m_cnt in sorted(marchi_stats.items(), key=lambda x: x[1], reverse=True)])}
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- ANALISI STATUS ASSOCIATIVO CNA -->
-    <div class="section-title">3. Opportunità Commerciale & Sinergia con CNA Catania</div>
-    <div style="background: #F7FAFC; border: 1px solid #CBD5E0; border-radius: 6px; padding: 10px 12px; font-size: 8pt; margin-bottom: 14px;">
-        <p style="margin: 0 0 6px 0;">
-            <strong>🔵 Target Vendita Combinata (Non Associati - {target_cna} Ditte):</strong> 
-            Rappresentano la leva a più alto impatto economico. A queste aziende viene proposta l'attivazione dell'assistente vocale H24 TecnicoLIVE combinata con l'adesione a CNA Catania usufruendo della <em>scontistica riservata sulla quota d'iscrizione del primo anno</em>.
-        </p>
-        <p style="margin: 0;">
-            <strong>🟢 Associati Rilevati ({associati} Ditte):</strong> 
-            Aziende già convenzionate con CNA Catania, pronte per la vendita diretta del centralino vocale AI con applicazione dello sconto di categoria (-15% sul canone mensile).
-        </p>
-    </div>
-
-    <!-- CATALOGO ESECUTIVO DEI LEAD PRIORITARI (TIER A VIP & WARM) -->
-    <div class="section-title">4. Catalogo Esecutivo Lead Prioritari con Icebreaker 1-to-1 (Stile Clay.com)</div>
-    <p style="font-size: 7.5pt; color: #718096; margin-top: 0; margin-bottom: 6px;">
-        Elenco delle migliori imprese qualificate per punteggio ICP, complete di numero normalizzato, P.IVA validata e icebreaker dinamico pronto per la chiamata dell'operatore:
-    </p>
-
-    <table class="table-custom">
+    <table class="table-leads">
         <thead>
             <tr>
-                <th style="width: 25%;">Ragione Sociale & Comune</th>
+                <th style="width: 3%; text-align: center;">#</th>
+                <th style="width: 25%;">Ragione Sociale & Marchi</th>
+                <th style="width: 14%;">Comune & Area</th>
                 <th style="width: 15%;">Telefono & P.IVA</th>
-                <th style="width: 18%;">Stato CNA & Tier</th>
-                <th style="width: 42%;">Gancio Conversazionale 1-to-1 (Pronto da Leggere)</th>
+                <th style="width: 13%;">Stato CNA & Tier</th>
+                <th style="width: 30%;">Icebreaker 1-to-1 (Stile Clay.com)</th>
             </tr>
         </thead>
         <tbody>
             {"".join([f'''
             <tr>
+                <td style="text-align: center; color: #718096; font-size: 6.5pt;">{idx}</td>
                 <td>
-                    <strong>{lead.get('Company Name', '')}</strong><br>
-                    <span style="color: #4A5568; font-size: 7.5pt;">📍 {lead.get('City', '')} ({lead.get('Area_Geografica', 'Provincia')})</span><br>
-                    <span style="color: #718096; font-size: 7pt;">🔧 {lead.get('Marchi_Rilevati', 'Caldaie / Impianti')}</span>
+                    <strong style="color: #1A202C; font-size: 7.5pt;">{lead.get('Company Name', '')}</strong><br>
+                    <span style="color: #4A5568; font-size: 6.5pt;">🔧 {lead.get('Marchi_Rilevati', 'Caldaie & Clima')}</span>
                 </td>
                 <td>
-                    <strong style="color: #2D3748;">{lead.get('Phone', '')}</strong><br>
-                    <code style="font-size: 7pt; color: #4A5568;">{lead.get('Partita_IVA', 'N/D')}</code>
+                    <strong>{lead.get('City', '')}</strong><br>
+                    <span style="color: #718096; font-size: 6.5pt;">{lead.get('Area_Geografica', 'Provincia')}</span>
                 </td>
                 <td>
-                    <span class="{'badge-vip' if 'Tier A' in str(lead.get('Lead_Tier')) else 'badge-warm'}">{lead.get('Lead_Tier', 'Tier B')}</span><br>
-                    <span style="font-size: 7.5pt; font-weight: 700; color: #2B6CB0;">Score: {lead.get('ICP_Score', '75')}/100</span><br>
-                    <span style="font-size: 7pt; color: #718096;">{lead.get('Stato_CNA', '').replace('🔵 ', '').replace('🟢 ', '').replace('🟡 ', '')}</span>
+                    <strong style="color: #005A9E;">{lead.get('Phone', '')}</strong><br>
+                    <code style="color: #4A5568; font-size: 6.5pt;">{lead.get('Partita_IVA', 'N/D')}</code>
                 </td>
                 <td>
-                    <div class="icebreaker-box">
+                    <span class="{'badge-vip' if 'Tier A' in str(lead.get('Lead_Tier')) else ('badge-warm' if 'Tier B' in str(lead.get('Lead_Tier')) else 'badge-warm')}">{lead.get('Lead_Tier', 'Tier B')}</span>
+                    <span style="font-weight: 700; color: #2B6CB0; font-size: 6.5pt;">({lead.get('ICP_Score', '70')} pt)</span><br>
+                    <span class="{'badge-socio' if 'ASSOCIATO RILEVATO' in str(lead.get('Stato_CNA')) else ('badge-target' if 'NON ASSOCIATO' in str(lead.get('Stato_CNA')) else 'badge-warm')}">
+                        {'SOCIO CNA' if 'ASSOCIATO RILEVATO' in str(lead.get('Stato_CNA')) else ('TARGET NON ASSOCIATO' if 'NON ASSOCIATO' in str(lead.get('Stato_CNA')) else 'DA VERIFICARE')}
+                    </span>
+                </td>
+                <td>
+                    <div class="icebreaker-mini">
                         "{lead.get('Icebreaker_1to1', 'Buongiorno, vi contatto da TecnicoLIVE per la convenzione CNA Catania...')}"
                     </div>
                 </td>
             </tr>
-            ''' for lead in top_leads])}
+            ''' for idx, lead in enumerate(all_leads, 1)])}
         </tbody>
     </table>
-
-    <!-- SCRIPT OUTBOUND DI SUPPORTO -->
-    <div class="section-title">5. Script Telefonici Operativi per Collaboratori Umani</div>
-    <div style="background: #FFF5F5; border: 1px solid #FEB2B2; border-radius: 6px; padding: 10px 12px; font-size: 7.8pt; margin-bottom: 12px;">
-        <strong style="color: #9B2C2C;">📞 Script Outbound per Ditte NON Associate a CNA (Quota 1° Anno Scontata):</strong><br>
-        <em>"Buongiorno [Nome Titolare], vi contatto da TecnicoLIVE. Stiamo attivando nella zona di [Comune] la convenzione speciale con CNA Catania per gli impiantisti specializzati su [Marchi Rilevati]. Sappiamo che durante gli interventi in cantiere è frequente perdere chiamate di clienti con urgenze. Con la convenzione vi attiviamo l'assistente vocale H24 che non perde un contatto e, contemporaneamente, sblocchiamo il vostro tesseramento a CNA Catania con la forte scontistica sulla quota d'iscrizione del primo anno. Avete 5 minuti oggi alle 17:00 per una prova live sul nostro numero test?"</em>
-    </div>
-
-    <!-- FOOTER DI CONFORMITA -->
-    <div class="footer-note">
-        TecnicoLIVE 2.0 &bull; Sinergia Rete d'Imprese &bull; Piazza dei Martiri 8, 95131 Catania (CT) &bull; Partnership con CNA Catania &bull; Conforme GDPR & Direttiva ePrivacy
-    </div>
 
 </body>
 </html>"""
@@ -406,24 +508,17 @@ async def generate_termoidraulica_pdf() -> Path:
     if not csv_file.exists():
         csv_file = DATA_DIR / "campagna_outbound_tecnicolive.csv"
 
-    print(f"Lettura dataset da: {csv_file}")
+    print(f"Lettura dataset completo da: {csv_file}")
     df = pd.read_csv(csv_file, dtype=str).fillna("")
 
-    # Filtra per termoidraulica se letto dal master
-    if "Nicchia_Target" in df.columns:
-        mask = df["Nicchia_Target"].str.contains("Termoidraulica|HVAC|Caldaie|Clima", case=False, na=False) | \
-               df.get("Category", pd.Series([""]*len(df))).str.contains("termoidraulica|caldaie|idraulic|climatiz", case=False, na=False)
-        if mask.any():
-            df = df[mask].copy()
-
-    print(f"Compilazione report per {len(df)} aziende di Termoidraulica...")
+    print(f"Compilazione report per TUTTE le {len(df)} aziende di Termoidraulica...")
     html_content = build_termoidraulica_html(df)
 
-    html_file = DATA_DIR / "temp_termoidraulica_report.html"
+    html_file = DATA_DIR / "temp_termoidraulica_report_full.html"
     with open(html_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    print("Compilazione PDF ad alta fedeltà con Playwright Chromium...")
+    print("Compilazione PDF ad alta fedeltà con Playwright Chromium (può richiedere qualche secondo per tutte le pagine)...")
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
@@ -439,7 +534,13 @@ async def generate_termoidraulica_pdf() -> Path:
     if html_file.exists():
         html_file.unlink()
 
-    print(f"Report PDF generato con successo: {PDF_OUTPUT_PATH}")
+    # Copia anche nella cartella degli artefatti per accesso e download diretto
+    if BRAIN_DIR.exists():
+        dest_brain = BRAIN_DIR / "Report_Termoidraulica_Catania_Provincia_CNA.pdf"
+        shutil.copy2(PDF_OUTPUT_PATH, dest_brain)
+        print(f"Copia del PDF sincronizzata negli artefatti: {dest_brain}")
+
+    print(f"Report PDF Direzionale generato con successo: {PDF_OUTPUT_PATH}")
     return PDF_OUTPUT_PATH
 
 
