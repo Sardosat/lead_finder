@@ -19,10 +19,11 @@ Questa guida descrive le attività quotidiane da svolgere dal lunedì al venerd�
 - [ ] Se necessario, apri Canva e componi la grafica seguendo alla lettera i colori e le posizioni fornite dall'agente.
 - [ ] Salva il testo e l'anteprima grafica in `produzione/02_bozze_social/`.
 
-### 3. Gestione e Arricchimento Lead (12:00 - 13:00)
+### 3. Gestione e Arricchimento Lead Clay.com (12:00 - 13:00)
 - [ ] Apri la Dashboard su `http://localhost:8501` e consulta il **Tab 1 (Lead Finder)**.
-- [ ] Filtra un comune target (es. Acireale o Paternò) e verifica le ditte da contattare con l'agente **Lead Hunter**.
-- [ ] Prepara la lista di bozze di contatto per il pomeriggio.
+- [ ] Imposta il filtro **Tier Clay** su **`Tier A (VIP 🔥)`** per isolare le ditte con score >= 80 (cellulare verificato, P.IVA valida, marchi compatibili e target tesseramento CNA).
+- [ ] Seleziona una ditta nell'**Ispettore Lead** e copia il suo **Icebreaker 1-to-1 Dinamico** generato su misura (citando il comune e i marchi esatti come Vaillant/Baxi).
+- [ ] Prepara la lista di bozze di contatto personalizzate pronte per il pomeriggio, senza mai contattare contatti freddi prima di aver lavorato tutti i Tier A.
 
 ---
 

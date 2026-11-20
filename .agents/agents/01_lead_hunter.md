@@ -18,8 +18,12 @@ L'agente **Lead Hunter & Outreach Specialist** presidia la prima linea dell'acqu
 
 ## 2. Skill e Strumenti Assegnati
 
-Dalla repository di competenze di marketing, questo agente sfrutta le seguenti skill specialistiche:
-- **`prospecting`**: Tecniche di identificazione account ideali, segnali di acquisto e arricchimento dati.
+Dalla repository di competenze di marketing e dall'architettura Clay.com integrata, questo agente sfrutta le seguenti skill specialistiche:
+- **`waterfall-enrichment`**: Arricchimento dati a cascata (fallback automatico su cellulari E.164 `+393xx`, email aziendali e P.IVA verificate con Luhn).
+- **`ai-account-research`**: "Claygent" verticale per estrarre marchi di caldaie e clima assistiti (Vaillant, Baxi, Buderus, Bosch), reperibilità H24 e certificazioni.
+- **`intent-signals`**: Rilevamento segnali d'intento d'acquisto (recensioni con chiamate perse, gelate Etna/ondate di calore, scadenze CITEL Sicilia).
+- **`account-scoring`**: Calcolo algoritmico del punteggio ICP (0-100) e segmentazione in Tier A (VIP 🔥 >=80), Tier B (Warm 55-79), Tier C (Cold <55).
+- **`prospecting`**: Tecniche avanzate di individuazione target ideale e pulizia liste.
 - **`cold-email`**: Struttura dei messaggi a freddo personalizzati sul dolore di cantiere, senza cliché e con deliverability protetta.
 - **`sales-enablement`**: Script di apertura telefonica, gestione delle prime resistenze, passaggio da contatto a demo.
 - **`sms` & WhatsApp**: Formule di contatto istantanee, messaggi sintetici con link audio demo.

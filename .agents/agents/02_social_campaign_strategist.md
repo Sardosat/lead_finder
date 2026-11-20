@@ -18,7 +18,9 @@ L'agente **Social Media Manager & Campaign Strategist** governa la visibilità o
 
 ## 2. Skill e Strumenti Assegnati
 
-Dalla repository di competenze di marketing, questo agente adotta le seguenti skill:
+Dalla repository di competenze di marketing e dall'architettura Clay.com, questo agente adotta le seguenti skill:
+- **`account-scoring`**: Segmentazione dei lead in Tier A (VIP 🔥) e Tier B (Warm) per la creazione di Custom Audience ad altissima conversione su RSK System, escludendo il Tier C dal media buying a pagamento.
+- **`intent-signals`**: Sincronizzazione delle campagne Meta Ads con i picchi d'intento territoriale (gelate Etna per caldaie, ondate di calore estive per clima, finestre CITEL).
 - **`social-media-manager`**: Generazione di calendari editoriali multi-settimana bilanciati per pilastri di contenuto (Educativo 40%, Dietro le quinte 20%, Prova Sociale 15%, Coinvolgimento 15%, Promozionale 10%).
 - **`ads`**: Principi avanzati di media buying per Meta e LinkedIn, struttura Ad Set, decisioni su scalabilità del budget, CPA e CPL.
 - **`marketing-plan`**: Definizione di obiettivi misurabili di acquisizione e crescita sul territorio siciliano.

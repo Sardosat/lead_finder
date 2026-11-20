@@ -18,7 +18,8 @@ L'agente **Content Creator & Copywriter** è la voce scritta di TecnicoLIVE:
 
 ## 2. Skill e Strumenti Assegnati
 
-Dalla repository di competenze di marketing, questo agente sfrutta le seguenti skill specialistiche:
+Dalla repository di competenze di marketing e dall'architettura Clay.com, questo agente sfrutta le seguenti skill specialistiche:
+- **`hyper-personalization`**: Generazione di icebreaker 1-to-1 iper-personalizzati basati su comune specifico, marchi di caldaie assistiti e reali criticità di cantiere, azzerando le aperture generiche.
 - **`content-production`**: Struttura dei testi con introduzione senza cliché, paragrafi brevi (2-3 frasi per il web) e call to action chiare.
 - **`social-content`**: Formattazione specifica per ciascuna piattaforma (spaziatura su LinkedIn, formati hook su Facebook, caption su Instagram).
 - **`ad-creative`**: Rispetto rigoroso dei limiti di caratteri per Meta e Google, formule di copy problema-agitazione-soluzione.

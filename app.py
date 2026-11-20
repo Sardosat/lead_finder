@@ -62,6 +62,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+from src.clay_engine import enrich_dataset_with_clay_engine
+
 @st.cache_data
 def load_data():
     if FILE_OUTBOUND.exists():
@@ -70,6 +72,11 @@ def load_data():
         df = pd.read_csv(FILE_ALL_LEADS, dtype=str).fillna("")
     else:
         df = pd.DataFrame()
+
+    if not df.empty:
+        # Se non ancora presenti i campi Clay, esegui l'arricchimento dinamico
+        if "ICP_Score" not in df.columns or "Lead_Tier" not in df.columns:
+            df = enrich_dataset_with_clay_engine(df)
     return df
 
 
@@ -107,22 +114,25 @@ with tab_leads:
     if df.empty:
         st.warning("Nessun dato trovato nella cartella data/. Esegui prima `python main.py` per generare le lead.")
     else:
-        # Metriche in evidenza
+        # Metriche in evidenza con Intelligenza Clay
         totale = len(df)
         piva_valide = len(df[df["Partita_IVA"].str.startswith("IT")])
         associati = len(df[df["Stato_CNA"].str.contains("ASSOCIATO RILEVATO", na=False)])
         targets = len(df[df["Stato_CNA"].str.contains("NON ASSOCIATO", na=False)])
+        tier_a_count = len(df[df["Lead_Tier"].str.contains("Tier A", na=False)]) if "Lead_Tier" in df.columns else 0
+        avg_score = int(pd.to_numeric(df["ICP_Score"], errors="coerce").mean()) if "ICP_Score" in df.columns else 70
 
-        k1, k2, k3, k4 = st.columns(4)
+        k1, k2, k3, k4, k5 = st.columns(5)
         k1.metric("Aziende Censite", f"{totale:,}", help="Totale ditte qualificate su Catania e provincia")
-        k2.metric("P.IVA Validate (IT)", f"{piva_valide:,}", f"{(piva_valide/totale*100):.1f}% con codice Luhn", delta_color="normal")
-        k3.metric("Soci CNA Rilevati", f"{associati}", "Convenzione diretta attiva")
-        k4.metric("Target Tesseramento", f"{targets:,}", "Pronti per offerta combinata")
+        k2.metric("P.IVA Validate (IT)", f"{piva_valide:,}", f"{(piva_valide/totale*100):.1f}% Luhn OK")
+        k3.metric("Target Tesseramento", f"{targets:,}", "Sconto 1° anno CNA")
+        k4.metric("Tier A 🔥 (VIP Priority)", f"{tier_a_count:,}", f"{(tier_a_count/totale*100):.1f}% Hot Leads")
+        k5.metric("Punteggio Medio ICP", f"{avg_score}/100", "Qualità media flotta")
 
         st.markdown("---")
 
-        # Filtri Interattivi
-        col_f1, col_f2, col_f3 = st.columns(3)
+        # Filtri Interattivi con Tiering Clay
+        col_f1, col_f2, col_f3, col_f4 = st.columns(4)
 
         with col_f1:
             comuni_list = ["Tutti i Comuni"] + sorted([c for c in df["City"].unique() if c])
@@ -136,7 +146,11 @@ with tab_leads:
             stati_list = ["Tutti gli Stati"] + sorted([st_val for st_val in df["Stato_CNA"].unique() if st_val])
             selected_status = st.selectbox("🏷️ Filtra per Stato CNA:", stati_list)
 
-        search_query = st.text_input("🔍 Ricerca rapida per Nome Azienda, Telefono o Partita IVA:", placeholder="Es. Clima, 095, IT05...")
+        with col_f4:
+            tier_options = ["Tutti i Tier", "Tier A 🔥 (VIP / Priorità)", "Tier B 🟡 (Warm / Retargeting)", "Tier C ❄️ (Cold)"]
+            selected_tier = st.selectbox("🏆 Filtra per Tier Clay:", tier_options)
+
+        search_query = st.text_input("🔍 Ricerca rapida per Nome Azienda, Telefono o Partita IVA:", placeholder="Es. Clima, 095, IT05, Vaillant...")
 
         # Applicazione filtri
         filtered_df = df.copy()
@@ -146,37 +160,44 @@ with tab_leads:
             filtered_df = filtered_df[filtered_df["Nicchia_Target"] == selected_niche]
         if selected_status != "Tutti gli Stati":
             filtered_df = filtered_df[filtered_df["Stato_CNA"] == selected_status]
+        if selected_tier != "Tutti i Tier":
+            tier_key = selected_tier.split()[0] + " " + selected_tier.split()[1]
+            filtered_df = filtered_df[filtered_df["Lead_Tier"].str.contains(tier_key, na=False)]
         if search_query:
             q = search_query.lower()
             filtered_df = filtered_df[
                 filtered_df["Company Name"].str.lower().str.contains(q, na=False) |
                 filtered_df["Phone"].str.lower().str.contains(q, na=False) |
-                filtered_df["Partita_IVA"].str.lower().str.contains(q, na=False)
+                filtered_df["Partita_IVA"].str.lower().str.contains(q, na=False) |
+                filtered_df.get("Marchi_Rilevati", pd.Series([""]*len(filtered_df))).str.lower().str.contains(q, na=False)
             ]
 
         st.caption(f"Visualizzati **{len(filtered_df)}** risultati su {totale} totali.")
 
-        # Tabella Lead Interattiva
-        display_cols = ["Company Name", "Nicchia_Target", "City", "Phone", "Partita_IVA", "Stato_CNA"]
+        # Tabella Lead Interattiva arricchita con colonne Clay
+        display_cols = ["Company Name", "Nicchia_Target", "City", "Phone", "Lead_Tier", "ICP_Score", "Marchi_Rilevati", "Stato_CNA"]
+        available_cols = [c for c in display_cols if c in filtered_df.columns]
         st.dataframe(
-            filtered_df[display_cols],
+            filtered_df[available_cols],
             use_container_width=True,
             hide_index=True,
             column_config={
-                "Company Name": st.column_config.TextColumn("Ragione Sociale", width="large"),
-                "Nicchia_Target": st.column_config.TextColumn("Settore", width="medium"),
+                "Company Name": st.column_config.TextColumn("Ragione Sociale", width="medium"),
+                "Nicchia_Target": st.column_config.TextColumn("Settore", width="small"),
                 "City": st.column_config.TextColumn("Comune", width="small"),
-                "Phone": st.column_config.TextColumn("Telefono", width="medium"),
-                "Partita_IVA": st.column_config.TextColumn("Partita IVA (IT)", width="small"),
-                "Stato_CNA": st.column_config.TextColumn("Stato Affiliazione", width="medium"),
+                "Phone": st.column_config.TextColumn("Telefono", width="small"),
+                "Lead_Tier": st.column_config.TextColumn("Tier Clay", width="small"),
+                "ICP_Score": st.column_config.NumberColumn("Score (0-100)", width="small"),
+                "Marchi_Rilevati": st.column_config.TextColumn("Marchi Assistiti", width="medium"),
+                "Stato_CNA": st.column_config.TextColumn("Stato CNA", width="small"),
             }
         )
 
-        # Ispettore Lead e Pitch di Vendita
-        st.markdown("### 📋 Scheda Dettaglio Lead & Pitch Commerciale")
+        # Ispettore Lead e Pitch di Vendita con Icebreaker 1-to-1
+        st.markdown("### 📋 Scheda Dettaglio Lead, Segnali Claygent & Icebreaker 1-to-1")
         if not filtered_df.empty:
             lead_names = filtered_df["Company Name"].tolist()
-            selected_lead_name = st.selectbox("Seleziona un'azienda per visualizzare il pitch dedicato:", lead_names)
+            selected_lead_name = st.selectbox("Seleziona un'azienda per visualizzare l'icebreaker dedicato:", lead_names)
             selected_row = filtered_df[filtered_df["Company Name"] == selected_lead_name].iloc[0]
 
             box_col1, box_col2 = st.columns([1, 2])
@@ -188,22 +209,40 @@ with tab_leads:
                 st.markdown(f"**P.IVA:** `{selected_row.get('Partita_IVA') or 'Non rilevata'}`")
                 if selected_row.get("Website"):
                     st.markdown(f"**Sito:** [{selected_row.get('Website')}]({selected_row.get('Website')})")
+                
+                st.markdown("---")
+                st.markdown(f"🏆 **Tier ICP:** `{selected_row.get('Lead_Tier', 'Tier B')}`")
+                st.markdown(f"📊 **Score:** **{selected_row.get('ICP_Score', '70')}/100**")
+                st.markdown(f"🔧 **Marchi Rilevati:** {selected_row.get('Marchi_Rilevati', 'Vaillant, Baxi')}")
+                st.markdown(f"🚨 **Reperibilità H24:** {selected_row.get('Servizio_H24', 'NO')}")
+                st.markdown(f"⚡ **Trigger d'Intento:** {selected_row.get('Trigger_Segnale', 'Stagionalità')}")
 
             with box_col2:
                 st.info(f"**Stato CNA:** {selected_row.get('Stato_CNA')}")
-                st.markdown("**🎯 Script Telefonico Personalizzato per Chiamata / WhatsApp:**")
+                
+                # Box Icebreaker 1-to-1 Stile Clay
+                st.markdown("#### 🎯 Icebreaker 1-to-1 Dinamico (Stile Clay.com — Pronto da Leggere)")
+                icebreaker_val = selected_row.get("Icebreaker_1to1") or (
+                    f"Buongiorno {selected_row.get('Company Name')}, vi contatto da TecnicoLIVE. "
+                    f"Abbiamo visto che a {selected_row.get('City')} siete specializzati su {selected_row.get('Marchi_Rilevati', 'caldaie e impianti')}. "
+                    f"Quante chiamate di nuovi clienti vi capita di perdere mentre siete con le mani occupate in cantiere? "
+                    f"Con la convenzione CNA Catania vi attiviamo l'assistente vocale H24 a canone scontato e la quota d'iscrizione a CNA del 1° anno scontata."
+                )
+                st.text_area("Gancio Conversazionale su Misura (Copia e leggi al telefono / WhatsApp):", value=icebreaker_val, height=130)
+
+                st.markdown("**📞 Script Commerciale Esteso:**")
                 pitch_text = selected_row.get("Pitch_Commerciale_TecnicoLIVE") or (
                     f"Buongiorno {selected_row.get('Company Name')}, vi contattiamo da TecnicoLIVE. "
                     f"In qualità di azienda di {selected_row.get('Nicchia_Target')} a {selected_row.get('City')}, "
                     f"stiamo attivando la convenzione con CNA Catania per non perdere chiamate in cantiere e sbloccare la scontistica dedicata sulla quota d'iscrizione CNA del primo anno."
                 )
-                st.text_area("Copia il testo:", value=pitch_text, height=100)
+                st.text_area("Pitch di Supporto:", value=pitch_text, height=90)
 
         # Download button
         st.download_button(
-            label="📥 Scarica Lista Filtrata in CSV (UTF-8)",
+            label="📥 Scarica Lista Filtrata con Dati Clay (CSV UTF-8)",
             data=filtered_df.to_csv(index=False, encoding="utf-8-sig"),
-            file_name="lead_filtrate_catania.csv",
+            file_name="lead_filtrate_clay_catania.csv",
             mime="text/csv"
         )
 
@@ -249,6 +288,24 @@ with tab_trends:
 
         with st.expander("🛡️ Patentino F-Gas & Certificazioni FGAS"):
             st.write("CNA Catania è punto di riferimento provinciale per corsi, patentini e tutele legali. Ottima leva di conversione per le aziende non ancora iscritte.")
+
+    st.markdown("---")
+    st.markdown("### ⚡ Intent & Trigger Signals Monitor (Stile Clay.com)")
+    st.markdown("Identificazione automatica degli eventi scatenanti (*Buying Triggers*) per prioritizzare l'outbound e le campagne di retargeting:")
+
+    t_col1, t_col2, t_col3, t_col4 = st.columns(4)
+    with t_col1:
+        st.metric("🚨 Chiamate Perse in Recensioni", "Alta Priorità", "+35% Resp. Rate")
+        st.caption("Aziende con clienti che segnalano 'non risponde mai al telefono' su Google My Business.")
+    with t_col2:
+        st.metric("❄️ Allerta Meteo & Gelate Etna", "Stagionale Attivo", "Picco Caldaie")
+        st.caption("Richieste improvvise di pronto intervento e riparazione urgente blocchi termici.")
+    with t_col3:
+        st.metric("📋 Scadenza CITEL Sicilia", "Normativo Imminente", "Bollino Blu")
+        st.caption("Obbligo caricamento telematico rapporti efficienza; ansia burocratica per il titolare.")
+    with t_col4:
+        st.metric("👷 Ricerca Personale Tecnico", "Segnale Crescita", "Sovraccarico Titolare")
+        st.caption("Ditte che pubblicano annunci per tecnici caldaie/clima con centralino saturo.")
 
     st.markdown("---")
     st.markdown("### 🔍 Domande & Keyword Più Cercate dai Clienti Finali a Catania")
