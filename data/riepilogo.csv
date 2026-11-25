@@ -1,7 +1,14 @@
 ﻿Metrica,Valore
-Totale Lead Elaborate (Solo Catania/Italia),726
-Partite IVA Trovate e Validate,649
-% Copertura P.IVA,89.4%
-Associati CNA Rilevati sul Web,2
-Target Nuovi da Associare a CNA,647
-Lead da Verificare con Ufficio Soci,77
+Totale Imprese Pulite (No GDO / No Estero),923
+Lead Chiamabili (Telefono E.164 Valido),397
+Lead Senza Telefono (in da_arricchire_contatti.csv),526
+Partite IVA Validate Luhn (IT),847
+% Copertura P.IVA,91.8%
+Siti Web Aziendali Reali (No Portali),144
+Marchi Reali Verificati,29
+Associati CNA Rilevati,2
+Target Tesseramento CNA (50% 1° Anno),845
+Lead da Verificare (P.IVA mancante / CNA pendente),76
+Tier A VIP (Score >= 80),228
+Tier B Warm (Score 55-79),127
+Tier C Cold / Da Arricchire (Score < 55),568

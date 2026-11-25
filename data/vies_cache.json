@@ -1,0 +1,15 @@
+{
+  "IT06200390877": {
+    "status": "OK",
+    "country_code": "IT",
+    "vat_number": "06200390877",
+    "vat_id": "IT06200390877",
+    "is_valid": false,
+    "user_error": "INVALID",
+    "name": "",
+    "address": "",
+    "request_identifier": "",
+    "request_date": "2026-11-21T07:43:53.939Z",
+    "cached": false
+  }
+}

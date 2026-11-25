@@ -81,8 +81,8 @@ async def run_pipeline(sample_leads):
                 f"Settore: {q_lead.get('target_niche')}\n"
                 f"Stato CNA: {q_lead.get('cna_tier')}\n\n"
                 f"Applica i principi di content-humanizer e copy-editing dal contesto .agents/product-marketing.md.\n"
-                f"Se l'azienda è 'target_tesseramento', evidenzia come gancio principale la scontistica riservata sulla quota d'iscrizione del primo anno a CNA Catania oltre all'assistente vocale.\n"
-                f"Evita gergo robotico AI e includi obbligatoriamente l'opzione di opt-out."
+                f"Se l'azienda è 'target_tesseramento', evidenzia come gancio principale l'associazione a CNA Catania al 50% per il primo anno oltre all'assistente vocale (piani ufficiali: Base 169€, Pro 269€, Business 369€).\n"
+                f"Evita gergo robotico AI e includi obbligatoriamente l'identificazione Sinergia/TecnicoLIVE (P.IVA IT06200390877) e la clausola di opt-out."
             ),
             schema=PITCH_SCHEMA,
             role=f"Pitch Creator: {q_lead.get('company_name')}",

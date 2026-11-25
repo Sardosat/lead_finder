@@ -1,23 +1,28 @@
-import streamlit as st
 import pandas as pd
-from pathlib import Path
+import streamlit as st
+
+from src.clay_engine import enrich_dataset_with_clay_engine, format_full_whatsapp_draft
+from src.config import (
+    GDPR_OPTOUT_TEXT,
+    OUTPUT_DA_ARRICCHIRE_CSV,
+    OUTPUT_DASHBOARD_CSV,
+    OUTPUT_OUTBOUND_CSV,
+    OUTPUT_TERMOIDRAULICA_CSV,
+    PRICING_PLANS,
+    SENDER_IDENTITY,
+)
 
 # Configurazione pagina
 st.set_page_config(
     page_title="TecnicoLIVE • Lead & Market Hub",
     page_icon="⚡",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-DATA_DIR = Path("data")
-FILE_ALL_LEADS = DATA_DIR / "tutte_le_lead.csv"
-FILE_TARGETS = DATA_DIR / "target_tesseramento_cna.csv"
-FILE_ASSOCIATI = DATA_DIR / "associati_rilevati.csv"
-FILE_OUTBOUND = DATA_DIR / "campagna_outbound_tecnicolive.csv"
-
 # Stile personalizzato CSS
-st.markdown("""
+st.markdown(
+    """
 <style>
     .main-title {
         font-size: 2.2rem;
@@ -31,24 +36,6 @@ st.markdown("""
         font-weight: 600;
         margin-bottom: 20px;
     }
-    .metric-card {
-        background: #F8FAFC;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 15px;
-        text-align: center;
-    }
-    .metric-value {
-        font-size: 2rem;
-        font-weight: 800;
-        color: #1A365D;
-    }
-    .metric-label {
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        font-weight: 700;
-        color: #64748B;
-    }
     .badge-cna {
         background: #EBF8FF;
         color: #2B6CB0;
@@ -59,75 +46,112 @@ st.markdown("""
         border: 1px solid #BEE3F8;
     }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
+DATASET_OPTIONS = {
+    "Campagna Outbound Chiamabili (E.164)": OUTPUT_OUTBOUND_CSV,
+    "Verticale Termoidraulica & Clima": OUTPUT_TERMOIDRAULICA_CSV,
+    "Tutte le Lead Pulite (Master)": OUTPUT_DASHBOARD_CSV,
+    "Da Arricchire (Senza Telefono)": OUTPUT_DA_ARRICCHIRE_CSV,
+}
 
-from src.clay_engine import enrich_dataset_with_clay_engine
 
 @st.cache_data
-def load_data():
-    if FILE_OUTBOUND.exists():
-        df = pd.read_csv(FILE_OUTBOUND, dtype=str).fillna("")
-    elif FILE_ALL_LEADS.exists():
-        df = pd.read_csv(FILE_ALL_LEADS, dtype=str).fillna("")
-    else:
-        df = pd.DataFrame()
+def load_data(dataset_path_str: str) -> pd.DataFrame:
+    from pathlib import Path
 
-    if not df.empty:
-        # Se non ancora presenti i campi Clay, esegui l'arricchimento dinamico
-        if "ICP_Score" not in df.columns or "Lead_Tier" not in df.columns:
-            df = enrich_dataset_with_clay_engine(df)
+    path = Path(dataset_path_str)
+    if not path.exists():
+        for fallback in (OUTPUT_OUTBOUND_CSV, OUTPUT_DASHBOARD_CSV):
+            if fallback.exists():
+                path = fallback
+                break
+        else:
+            return pd.DataFrame()
+
+    df = pd.read_csv(path, dtype=str).fillna("")
+    if not df.empty and ("ICP_Score" not in df.columns or "Marchi_Verificati" not in df.columns):
+        df = enrich_dataset_with_clay_engine(df)
     return df
 
 
-df = load_data()
+# Sidebar selettore dataset & info compliance
+with st.sidebar:
+    st.markdown("### 📂 Sorgente Dataset")
+    selected_dataset_label = st.selectbox(
+        "Seleziona lista operativa:",
+        list(DATASET_OPTIONS.keys()),
+        index=0,
+    )
+    st.caption(
+        "I dati rispettano la policy Zero Hallucination (solo marchi reali rilevati), "
+        "filtro anti-GDO, normalizzazione telefono E.164 (`+39`) e separazione contatti privi di telefono."
+    )
+    st.markdown("---")
+    st.markdown("### 💶 Listino Ufficiale TecnicoLIVE")
+    st.markdown(
+        f"- **Base**: {PRICING_PLANS['base']['monthly']}€/mese + {PRICING_PLANS['base']['setup_fee']}€ setup ({PRICING_PLANS['base']['minutes']} min)\n"
+        f"- **Pro**: {PRICING_PLANS['pro']['monthly']}€/mese + {PRICING_PLANS['pro']['setup_fee']}€ setup ({PRICING_PLANS['pro']['minutes']} min)\n"
+        f"- **Business**: {PRICING_PLANS['business']['monthly']}€/mese + {PRICING_PLANS['business']['setup_fee']}€ setup ({PRICING_PLANS['business']['minutes']} min)\n"
+        "- **Annuale**: **-20%** sul canone\n"
+        "- **Convenzione CNA**: **50% quota associativa 1° anno**"
+    )
+
+df = load_data(str(DATASET_OPTIONS[selected_dataset_label]))
 
 # Header Dashboard
 col_logo, col_info = st.columns([3, 1])
 with col_logo:
     st.markdown('<div class="main-title">⚡ TecnicoLIVE • Executive Dashboard</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">Intelligence Hub &bull; Lead Finder CNA &bull; Trend di Mercato &bull; Sales Content</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sub-title">Intelligence Hub &bull; Lead Finder CNA &bull; Trend di Mercato &bull; Sales Content</div>',
+        unsafe_allow_html=True,
+    )
 
 with col_info:
-    st.markdown("""
+    st.markdown(
+        """
     <div style="text-align: right; padding-top: 5px;">
         <span class="badge-cna">PARTNERSHIP CNA CATANIA</span><br>
-        <small style="color: #64748B;">Piazza dei Martiri 8, Catania</small>
+        <small style="color: #64748B;">Sinergia Rete d'Imprese &bull; P.IVA IT06200390877</small>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 st.divider()
 
-# Definizione dei 3 Tab Principali
-tab_leads, tab_trends, tab_content = st.tabs([
+# Definizione dei 4 Tab Principali
+tab_leads, tab_trends, tab_content, tab_engine = st.tabs([
     "🎯 Tab 1: Lead Finder",
     "📈 Tab 2: Trend Finder",
-    "📝 Tab 3: Contenuti & Sales Hub"
+    "📝 Tab 3: Contenuti & Sales Hub",
+    "🚀 Tab 4: Lead Engine IT/EU (Multi-Prodotto)",
 ])
 
 # ==========================================
 # TAB 1: LEAD FINDER
 # ==========================================
 with tab_leads:
-    st.subheader("Censimento & Qualificazione Impiantisti (Catania e Provincia)")
+    st.subheader(f"Censimento & Qualificazione Impiantisti — {selected_dataset_label}")
 
     if df.empty:
-        st.warning("Nessun dato trovato nella cartella data/. Esegui prima `python main.py` per generare le lead.")
+        st.warning("Nessun dato disponibile per questa vista. Esegui `python main.py --clean` per generare i dataset puliti.")
     else:
-        # Metriche in evidenza con Intelligenza Clay
         totale = len(df)
-        piva_valide = len(df[df["Partita_IVA"].str.startswith("IT")])
-        associati = len(df[df["Stato_CNA"].str.contains("ASSOCIATO RILEVATO", na=False)])
-        targets = len(df[df["Stato_CNA"].str.contains("NON ASSOCIATO", na=False)])
-        tier_a_count = len(df[df["Lead_Tier"].str.contains("Tier A", na=False)]) if "Lead_Tier" in df.columns else 0
-        avg_score = int(pd.to_numeric(df["ICP_Score"], errors="coerce").mean()) if "ICP_Score" in df.columns else 70
+        piva_valide = int(df["Partita_IVA"].str.startswith("IT").sum()) if "Partita_IVA" in df.columns else 0
+        targets = int(df["Stato_CNA"].str.contains("NON ASSOCIATO", na=False).sum()) if "Stato_CNA" in df.columns else 0
+        tier_a_count = int(df["Lead_Tier"].str.contains("Tier A", na=False).sum()) if "Lead_Tier" in df.columns else 0
+        avg_score = int(pd.to_numeric(df["ICP_Score"], errors="coerce").mean()) if "ICP_Score" in df.columns and totale > 0 else 0
 
         k1, k2, k3, k4, k5 = st.columns(5)
-        k1.metric("Aziende Censite", f"{totale:,}", help="Totale ditte qualificate su Catania e provincia")
-        k2.metric("P.IVA Validate (IT)", f"{piva_valide:,}", f"{(piva_valide/totale*100):.1f}% Luhn OK")
-        k3.metric("Target Tesseramento", f"{targets:,}", "Sconto 1° anno CNA")
-        k4.metric("Tier A 🔥 (VIP Priority)", f"{tier_a_count:,}", f"{(tier_a_count/totale*100):.1f}% Hot Leads")
-        k5.metric("Punteggio Medio ICP", f"{avg_score}/100", "Qualità media flotta")
+        k1.metric("Aziende in Vista", f"{totale:,}", help="Totale ditte pulite nella vista selezionata")
+        k2.metric("P.IVA Validate (IT)", f"{piva_valide:,}", f"{(piva_valide / totale * 100):.1f}% Luhn OK" if totale else "0%")
+        k3.metric("Target Tesseramento", f"{targets:,}", "CNA 50% 1° anno")
+        k4.metric("Tier A 🔥 (VIP Priority)", f"{tier_a_count:,}", f"{(tier_a_count / totale * 100):.1f}% Hot Leads" if totale else "0%")
+        k5.metric("Punteggio Medio ICP", f"{avg_score}/100", "Qualità media lead")
 
         st.markdown("---")
 
@@ -147,10 +171,18 @@ with tab_leads:
             selected_status = st.selectbox("🏷️ Filtra per Stato CNA:", stati_list)
 
         with col_f4:
-            tier_options = ["Tutti i Tier", "Tier A 🔥 (VIP / Priorità)", "Tier B 🟡 (Warm / Retargeting)", "Tier C ❄️ (Cold)"]
+            tier_options = [
+                "Tutti i Tier",
+                "Tier A 🔥 (VIP / Priorità)",
+                "Tier B 🟡 (Warm / Retargeting)",
+                "Tier C ❄️ (Cold)",
+            ]
             selected_tier = st.selectbox("🏆 Filtra per Tier Clay:", tier_options)
 
-        search_query = st.text_input("🔍 Ricerca rapida per Nome Azienda, Telefono o Partita IVA:", placeholder="Es. Clima, 095, IT05, Vaillant...")
+        search_query = st.text_input(
+            "🔍 Ricerca rapida per Nome Azienda, Telefono E.164, P.IVA o Marchi:",
+            placeholder="Es. Clima, +393, IT05, Vaillant...",
+        )
 
         # Applicazione filtri
         filtered_df = df.copy()
@@ -165,85 +197,110 @@ with tab_leads:
             filtered_df = filtered_df[filtered_df["Lead_Tier"].str.contains(tier_key, na=False)]
         if search_query:
             q = search_query.lower()
+            marchi_col = filtered_df["Marchi_Rilevati"] if "Marchi_Rilevati" in filtered_df.columns else pd.Series([""] * len(filtered_df), index=filtered_df.index)
             filtered_df = filtered_df[
-                filtered_df["Company Name"].str.lower().str.contains(q, na=False) |
-                filtered_df["Phone"].str.lower().str.contains(q, na=False) |
-                filtered_df["Partita_IVA"].str.lower().str.contains(q, na=False) |
-                filtered_df.get("Marchi_Rilevati", pd.Series([""]*len(filtered_df))).str.lower().str.contains(q, na=False)
+                filtered_df["Company Name"].str.lower().str.contains(q, na=False)
+                | filtered_df["Phone"].str.lower().str.contains(q, na=False)
+                | filtered_df["Partita_IVA"].str.lower().str.contains(q, na=False)
+                | marchi_col.str.lower().str.contains(q, na=False)
             ]
 
+        filtered_df = filtered_df.reset_index(drop=True)
         st.caption(f"Visualizzati **{len(filtered_df)}** risultati su {totale} totali.")
 
-        # Tabella Lead Interattiva arricchita con colonne Clay
-        display_cols = ["Company Name", "Nicchia_Target", "City", "Phone", "Lead_Tier", "ICP_Score", "Marchi_Rilevati", "Stato_CNA"]
+        # Tabella Lead Interattiva
+        display_cols = [
+            "Company Name",
+            "Nicchia_Target",
+            "City",
+            "Phone",
+            "Lead_Tier",
+            "ICP_Score",
+            "Marchi_Rilevati",
+            "Stato_CNA",
+        ]
         available_cols = [c for c in display_cols if c in filtered_df.columns]
         st.dataframe(
             filtered_df[available_cols],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Company Name": st.column_config.TextColumn("Ragione Sociale", width="medium"),
                 "Nicchia_Target": st.column_config.TextColumn("Settore", width="small"),
                 "City": st.column_config.TextColumn("Comune", width="small"),
-                "Phone": st.column_config.TextColumn("Telefono", width="small"),
+                "Phone": st.column_config.TextColumn("Telefono (E.164)", width="small"),
                 "Lead_Tier": st.column_config.TextColumn("Tier Clay", width="small"),
                 "ICP_Score": st.column_config.NumberColumn("Score (0-100)", width="small"),
-                "Marchi_Rilevati": st.column_config.TextColumn("Marchi Assistiti", width="medium"),
+                "Marchi_Rilevati": st.column_config.TextColumn("Marchi Rilevati (Reali)", width="medium"),
                 "Stato_CNA": st.column_config.TextColumn("Stato CNA", width="small"),
-            }
+            },
         )
 
-        # Ispettore Lead e Pitch di Vendita con Icebreaker 1-to-1
-        st.markdown("### 📋 Scheda Dettaglio Lead, Segnali Claygent & Icebreaker 1-to-1")
+        # Ispettore Lead Univoco per Indice (gestisce correttamente omonimi)
+        st.markdown("### 📋 Scheda Dettaglio Lead, Segnali Verificati & Messaggi Conformi GDPR")
         if not filtered_df.empty:
-            lead_names = filtered_df["Company Name"].tolist()
-            selected_lead_name = st.selectbox("Seleziona un'azienda per visualizzare l'icebreaker dedicato:", lead_names)
-            selected_row = filtered_df[filtered_df["Company Name"] == selected_lead_name].iloc[0]
+            selected_idx = st.selectbox(
+                "Seleziona un'azienda per visualizzare l'icebreaker dedicato e il messaggio WhatsApp conforme:",
+                options=list(range(len(filtered_df))),
+                format_func=lambda idx: (
+                    f"{filtered_df.iloc[idx].get('Company Name', '')} — "
+                    f"{filtered_df.iloc[idx].get('City', '')} "
+                    f"({filtered_df.iloc[idx].get('Partita_IVA') or 'P.IVA N/D'})"
+                ),
+            )
+            selected_row = filtered_df.iloc[selected_idx]
 
             box_col1, box_col2 = st.columns([1, 2])
             with box_col1:
                 st.markdown(f"**Azienda:** {selected_row.get('Company Name')}")
                 st.markdown(f"**Settore:** {selected_row.get('Nicchia_Target')}")
                 st.markdown(f"**Comune:** {selected_row.get('City')}")
-                st.markdown(f"**Telefono:** `{selected_row.get('Phone')}`")
+                st.markdown(f"**Telefono E.164:** `{selected_row.get('Phone') or 'Non rilevato'}`")
+                if selected_row.get("Phone_Secondary"):
+                    st.markdown(f"**Altri Telefoni:** `{selected_row.get('Phone_Secondary')}`")
                 st.markdown(f"**P.IVA:** `{selected_row.get('Partita_IVA') or 'Non rilevata'}`")
+                if selected_row.get("Email"):
+                    st.markdown(f"**Email:** `{selected_row.get('Email')}`")
                 if selected_row.get("Website"):
-                    st.markdown(f"**Sito:** [{selected_row.get('Website')}]({selected_row.get('Website')})")
-                
+                    st.markdown(f"**Sito Aziendale Reale:** [{selected_row.get('Website')}]({selected_row.get('Website')})")
+                else:
+                    st.markdown("**Sito Aziendale:** `Non rilevato`")
+
                 st.markdown("---")
-                st.markdown(f"🏆 **Tier ICP:** `{selected_row.get('Lead_Tier', 'Tier B')}`")
-                st.markdown(f"📊 **Score:** **{selected_row.get('ICP_Score', '70')}/100**")
-                st.markdown(f"🔧 **Marchi Rilevati:** {selected_row.get('Marchi_Rilevati', 'Vaillant, Baxi')}")
-                st.markdown(f"🚨 **Reperibilità H24:** {selected_row.get('Servizio_H24', 'NO')}")
-                st.markdown(f"⚡ **Trigger d'Intento:** {selected_row.get('Trigger_Segnale', 'Stagionalità')}")
+                st.markdown(f"🏆 **Tier ICP:** `{selected_row.get('Lead_Tier', 'Tier C')}`")
+                st.markdown(f"📊 **Score:** **{selected_row.get('ICP_Score', '0')}/100**")
+                st.markdown(
+                    f"🔧 **Marchi Rilevati:** {selected_row.get('Marchi_Rilevati') or 'Non rilevato'} "
+                    f"(Verificati: `{selected_row.get('Marchi_Verificati', 'NO')}`)"
+                )
+                st.markdown(f"📜 **Certificazioni:** {selected_row.get('Certificazioni_Rilevate') or 'Non rilevate'}")
+                st.markdown(f"🚨 **Reperibilità H24:** {selected_row.get('Servizio_H24', 'NO (Orario Ufficio)')}")
+                st.markdown(f"⚡ **Trigger d'Intento:** {selected_row.get('Trigger_Segnale', 'N/D')}")
 
             with box_col2:
                 st.info(f"**Stato CNA:** {selected_row.get('Stato_CNA')}")
-                
-                # Box Icebreaker 1-to-1 Stile Clay
-                st.markdown("#### 🎯 Icebreaker 1-to-1 Dinamico (Stile Clay.com — Pronto da Leggere)")
-                icebreaker_val = selected_row.get("Icebreaker_1to1") or (
-                    f"Buongiorno {selected_row.get('Company Name')}, vi contatto da TecnicoLIVE. "
-                    f"Abbiamo visto che a {selected_row.get('City')} siete specializzati su {selected_row.get('Marchi_Rilevati', 'caldaie e impianti')}. "
-                    f"Quante chiamate di nuovi clienti vi capita di perdere mentre siete con le mani occupate in cantiere? "
-                    f"Con la convenzione CNA Catania vi attiviamo l'assistente vocale H24 a canone scontato e la quota d'iscrizione a CNA del 1° anno scontata."
-                )
-                st.text_area("Gancio Conversazionale su Misura (Copia e leggi al telefono / WhatsApp):", value=icebreaker_val, height=130)
 
-                st.markdown("**📞 Script Commerciale Esteso:**")
-                pitch_text = selected_row.get("Pitch_Commerciale_TecnicoLIVE") or (
-                    f"Buongiorno {selected_row.get('Company Name')}, vi contattiamo da TecnicoLIVE. "
-                    f"In qualità di azienda di {selected_row.get('Nicchia_Target')} a {selected_row.get('City')}, "
-                    f"stiamo attivando la convenzione con CNA Catania per non perdere chiamate in cantiere e sbloccare la scontistica dedicata sulla quota d'iscrizione CNA del primo anno."
+                st.markdown("#### 🎯 Icebreaker 1-to-1 Dinamico (Solo Dati Verificati)")
+                icebreaker_val = selected_row.get("Icebreaker_1to1") or (
+                    f"Buongiorno {selected_row.get('Company Name')}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                    f"Per le imprese di {selected_row.get('Nicchia_Target')} a {selected_row.get('City')}, con la convenzione "
+                    f"CNA Catania attivate l'assistente vocale AI e l'associazione a CNA al 50% per il primo anno."
                 )
-                st.text_area("Pitch di Supporto:", value=pitch_text, height=90)
+                st.text_area("Gancio Conversazionale (Telefonico):", value=icebreaker_val, height=115)
+
+                wa_full_val = selected_row.get("Messaggio_WhatsApp_Completo") or format_full_whatsapp_draft(icebreaker_val)
+                st.text_area(
+                    "Bozza WhatsApp Completa (Conforme GDPR — Mittente + Opt-Out):",
+                    value=wa_full_val,
+                    height=155,
+                )
 
         # Download button
         st.download_button(
-            label="📥 Scarica Lista Filtrata con Dati Clay (CSV UTF-8)",
+            label="📥 Scarica Lista Filtrata (CSV UTF-8)",
             data=filtered_df.to_csv(index=False, encoding="utf-8-sig"),
-            file_name="lead_filtrate_clay_catania.csv",
-            mime="text/csv"
+            file_name="lead_filtrate_tecnicolive_catania.csv",
+            mime="text/csv",
         )
 
 
@@ -252,60 +309,74 @@ with tab_leads:
 # ==========================================
 with tab_trends:
     st.subheader("Market Intelligence & Trend Impiantistica a Catania e Sicilia")
-    st.markdown("Monitoraggio in tempo reale dei cicli stagionali, delle normative e della domanda di pronto intervento.")
+    st.info(
+        "⚠️ **STIMA TEORICA / MODELLO PREDITTIVO (`AGENTS.md` §2):** "
+        "Gli indicatori stagionali e i moltiplicatori di domanda seguenti sono stime operative di lavoro "
+        "utilizzate per prioritizzare il calendario commerciale sul territorio."
+    )
 
     c1, c2 = st.columns([1, 1])
 
     with c1:
-        st.markdown("### 🌡️ Ciclo della Domanda Stagionale (Catania & Provincia)")
-        st.markdown("""
-        Nell'area etnea e costiera catanese, la domanda impiantistica segue due picchi acuti durante l'anno:
-        """)
+        st.markdown("### 🌡️ Ciclo della Domanda Stagionale (STIMA TEORICA)")
+        st.markdown(
+            "Nell'area etnea e costiera catanese, la domanda impiantistica segue due picchi acuti durante l'anno:"
+        )
 
-        st.progress(0.95, text="🔥 Estate (Giu - Set): Climatizzazione & Refrigerazione (+340% chiamate)")
-        st.caption("Centralini intasati per condizionatori bloccati, ricariche gas refrigerante e guasti improvvisi durante ondate di calore a 40°C+. Gli artigiani perdono fino al 60% delle chiamate.")
+        st.progress(0.95, text="🔥 Estate (Giu - Set): Climatizzazione & Refrigerazione (STIMA TEORICA: fino a +340% volumi)")
+        st.caption("Centralini intasati per condizionatori bloccati, ricariche gas refrigerante e guasti durante le ondate di calore estive.")
 
-        st.progress(0.85, text="❄️ Inverno (Nov - Feb): Caldaie & Termoidraulica (+280% chiamate)")
-        st.caption("Emergenze riscaldamento, blocchi caldaie, controllo fumi (Bollino Blu CITEL Sicilia) e manutenzioni straordinarie. Picco di chiamate serali e nel weekend.")
+        st.progress(0.85, text="❄️ Inverno (Nov - Feb): Caldaie & Termoidraulica (STIMA TEORICA: fino a +280% volumi)")
+        st.caption("Emergenze riscaldamento, blocchi caldaie, controllo fumi (Bollino Blu CITEL Sicilia) e picchi serali/weekend.")
 
-        st.progress(0.40, text="🌱 Primavera/Autunno: Transizione Energetica & Pompe di Calore")
-        st.caption("Fase ideale per proporre contratti di manutenzione programmata e installazioni di pompe di calore e fotovoltaico.")
+        st.progress(0.40, text="🌱 Primavera/Autunno: Manutenzioni Programmate & Pompe di Calore")
+        st.caption("Fase ideale per proporre contratti di manutenzione programmata e nuove installazioni.")
 
     with c2:
-        st.markdown("### ⚖️ Driver Normativi & Incentivi Chiave (2026)")
-        st.markdown("""
-        I temi normativi che spingono installatori e titolari ad automatizzarsi e associarsi a CNA:
-        """)
+        st.markdown("### ⚖️ Driver Normativi & Convenzione CNA Catania")
+        st.markdown("Le leve ufficiali che spingono installatori e titolari ad attivarsi:")
 
-        with st.expander("🎟️ Scontistica Quota Iscrizione 1° Anno CNA Catania", expanded=True):
-            st.write("La convenzione ufficiale prevede una scontistica riservata sulla quota di tesseramento per il primo anno a CNA Catania. Rappresenta la leva finanziaria decisiva per gli impiantisti non associati, azzerando le barriere all'entrata e combinando la tutela sindacale, legale e fiscale all'innovazione dell'automazione vocale.")
+        with st.expander("🎟️ Associazione CNA Catania al 50% per il 1° Anno", expanded=True):
+            st.write(
+                "La convenzione ufficiale prevede l'**associazione a CNA Catania al 50% della quota associativa per tutto il primo anno** "
+                "per le aziende non ancora iscritte. È la leva decisiva che abbatte la barriera d'ingresso e unisce tutela sindacale, "
+                "fiscale e normativa all'automazione vocale di TecnicoLIVE."
+            )
 
         with st.expander("📋 Obbligo Catasto Impianti Termici Sicilia (CITEL)"):
-            st.write("In Sicilia è obbligatorio caricare telematicamente i rapporti di efficienza energetica. I tecnici lamentano ore perse la sera dopo il cantiere; l'assistente vocale TecnicoLIVE automatizza la raccolta dati durante la chiamata.")
+            st.write(
+                "In Sicilia è obbligatorio caricare telematicamente i rapporti di efficienza energetica. "
+                "L'assistente vocale TecnicoLIVE raccoglie già i dati essenziali durante la chiamata iniziale."
+            )
 
-        with st.expander("🔌 Transizione 5.0 & Pompe di Calore"):
-            st.write("La transizione verso sistemi ibridi e pompe di calore richiede più preventivi e consulenza tecnica telefonica. Chi risponde entro 3 squilli acquisisce il cliente; chi richiama dopo 2 ore trova il lavoro già assegnato.")
+        with st.expander("🔌 Transizione Energetica & Pompe di Calore"):
+            st.write(
+                "Chi risponde tempestivamente con chiamate simultanee illimitate acquisisce il preventivo; "
+                "chi richiama dopo ore rischia di trovare il cliente già seguito da un concorrente."
+            )
 
-        with st.expander("🛡️ Patentino F-Gas & Certificazioni FGAS"):
-            st.write("CNA Catania è punto di riferimento provinciale per corsi, patentini e tutele legali. Ottima leva di conversione per le aziende non ancora iscritte.")
+        with st.expander("🛡️ Patentino F-Gas & Certificazioni DM 37/08"):
+            st.write(
+                "CNA Catania è punto di riferimento provinciale per corsi, patentini F-Gas e tutele legali di categoria."
+            )
 
     st.markdown("---")
-    st.markdown("### ⚡ Intent & Trigger Signals Monitor (Stile Clay.com)")
-    st.markdown("Identificazione automatica degli eventi scatenanti (*Buying Triggers*) per prioritizzare l'outbound e le campagne di retargeting:")
+    st.markdown("### ⚡ Intent & Trigger Signals Monitor (`MODELLO PREDITTIVO`)")
+    st.markdown("Identificazione automatica dei segnali operativi per prioritizzare outbound e retargeting:")
 
     t_col1, t_col2, t_col3, t_col4 = st.columns(4)
     with t_col1:
-        st.metric("🚨 Chiamate Perse in Recensioni", "Alta Priorità", "+35% Resp. Rate")
-        st.caption("Aziende con clienti che segnalano 'non risponde mai al telefono' su Google My Business.")
+        st.metric("🚨 Chiamate Perse / Segreteria", "Alta Priorità", "STIMA TEORICA: +35% Resp.")
+        st.caption("Aziende prive di segreteria H24 o con segnalazioni di mancata risposta telefonica.")
     with t_col2:
         st.metric("❄️ Allerta Meteo & Gelate Etna", "Stagionale Attivo", "Picco Caldaie")
         st.caption("Richieste improvvise di pronto intervento e riparazione urgente blocchi termici.")
     with t_col3:
         st.metric("📋 Scadenza CITEL Sicilia", "Normativo Imminente", "Bollino Blu")
-        st.caption("Obbligo caricamento telematico rapporti efficienza; ansia burocratica per il titolare.")
+        st.caption("Caricamento telematico rapporti efficienza e pianificazione controlli periodici.")
     with t_col4:
-        st.metric("👷 Ricerca Personale Tecnico", "Segnale Crescita", "Sovraccarico Titolare")
-        st.caption("Ditte che pubblicano annunci per tecnici caldaie/clima con centralino saturo.")
+        st.metric("👷 Reperibilità H24 / Multi-Furgone", "Segnale Strutturale", "Sovraccarico Titolare")
+        st.caption("Ditte che offrono pronto intervento con potenziale sovraccarico telefonico.")
 
     st.markdown("---")
     st.markdown("### 🔍 Domande & Keyword Più Cercate dai Clienti Finali a Catania")
@@ -313,148 +384,341 @@ with tab_trends:
     col_kw1, col_kw2, col_kw3 = st.columns(3)
     with col_kw1:
         st.markdown("**Riscaldamento & Caldaie**")
-        st.markdown("""
+        st.markdown(
+            """
         - `assistenza caldaie catania h24`
         - `blocco caldaia vaillant acireale`
         - `costo bollino blu caldaia catania`
         - `tecnico caldaie ariston catania`
-        """)
+        """
+        )
     with col_kw2:
         st.markdown("**Climatizzazione**")
-        st.markdown("""
+        st.markdown(
+            """
         - `ricarica condizionatore catania subito`
         - `installazione climatizzatori acireale`
         - `condizionatore non raffredda misterbianco`
         - `preventivo dual split catania`
-        """)
+        """
+        )
     with col_kw3:
         st.markdown("**Idraulica & Elettrico**")
-        st.markdown("""
+        st.markdown(
+            """
         - `idraulico pronto intervento catania`
         - `riparazione perdita acqua acireale`
         - `elettricista urgente catania h24`
         - `certificazione conformità impianto 37/08`
-        """)
+        """
+        )
 
 
 # ==========================================
 # TAB 3: CONTENUTI & SALES HUB
 # ==========================================
 with tab_content:
-    st.subheader("Sales Hub & Contenuti Pronti all'Uso")
-    st.markdown("Materiali di vendita, script di telemarketing, template WhatsApp e calcolatore ROI.")
+    st.subheader("Sales Hub & Contenuti Pronti all'Uso (Conformi GDPR & Listino Ufficiale)")
+    st.markdown("Materiali di vendita, script telefonici, template WhatsApp con opt-out e calcolatore ROI teorico.")
 
     sub_t1, sub_t2, sub_t3, sub_t4 = st.tabs([
         "📞 Script Telefonici",
         "💬 Template WhatsApp",
-        "🧮 Calcolatore ROI",
-        "🛡️ Risoluzione Obiezioni"
+        "🧮 Calcolatore ROI (Stima Teorica)",
+        "🛡️ Risoluzione Obiezioni",
     ])
 
     with sub_t1:
-        st.markdown("#### Script Telefonico 1: Aziende già Associate a CNA (Sconto Convenzione)")
-        st.code("""
-Operatore: "Buongiorno [Nome Titolare/Azienda], la chiamo da TecnicoLIVE. La contatto in merito alla convenzione ufficiale attiva con CNA Catania per le aziende impiantistiche.
-Sappiamo che in questo periodo siete spesso in cantiere con le mani occupate e molte telefonate di clienti finiscono senza risposta.
-Con la convenzione CNA Catania le abbiamo riservato l'assistente vocale AI che risponde H24 ai suoi clienti, prende gli appuntamenti e le invia la notifica WhatsApp con diagnosi del guasto, con canone agevolato categoria CNA.
-Ha 5 minuti oggi alle 17:00 per fare una prova live chiamando il nostro numero test?"
-        """, language="markdown")
+        st.markdown("#### Script Telefonico 1: Aziende già Associate a CNA Catania")
+        st.code(
+            f"""
+Operatore: "Buongiorno [Nome Titolare/Azienda], la chiamo da {SENDER_IDENTITY}.
+La contatto in merito alla convenzione ufficiale attiva con CNA Catania per le imprese impiantistiche.
+Sappiamo che mentre siete in cantiere molte chiamate di nuovi clienti finiscono senza risposta.
+Con TecnicoLIVE attivate l'assistente vocale AI con chiamate simultanee illimitate che risponde H24, fa la pre-diagnosi del guasto e vi invia la scheda intervento su WhatsApp (piani a partire da {PRICING_PLANS['base']['monthly']}€/mese, -20% su base annuale).
+Ha 5 minuti oggi per fare una prova live chiamando il nostro numero test +39 095 342 0411?"
 
-        st.markdown("#### Script Telefonico 2: Aziende NON Associate (Leva Sconto 1° Anno CNA + TecnicoLIVE)")
-        st.code("""
-Operatore: "Buongiorno [Nome Titolare], chiamo da TecnicoLIVE. Stiamo attivando nella zona di [Comune] la convenzione esclusiva con CNA Catania per gli impiantisti.
-Abbiamo notato che non siete ancora registrati negli elenchi soci CNA: per supportare le ditte del territorio abbiamo creato un pacchetto speciale.
-Vi attiviamo l'assistente vocale per recuperare tutte le chiamate che perdete mentre siete sui furgoni e, contemporaneamente, sblocchiamo il vostro tesseramento a CNA Catania con la scontistica speciale sulla quota d'iscrizione del primo anno, garantendovi tutela legale, fiscale e agevolazioni CITEL e F-Gas.
-Chi si occupa in azienda di decidere sulla gestione delle chiamate e delle convenzioni?"
-        """, language="markdown")
+[Nota Opt-Out in caso di follow-up scritto: {GDPR_OPTOUT_TEXT}]
+        """,
+            language="markdown",
+        )
+
+        st.markdown("#### Script Telefonico 2: Aziende NON Associate (Leva Associazione CNA al 50% 1° Anno)")
+        st.code(
+            f"""
+Operatore: "Buongiorno [Nome Titolare], chiamo da {SENDER_IDENTITY}.
+Stiamo attivando nella zona di [Comune] la convenzione esclusiva con CNA Catania per gli impiantisti.
+Poiché non risultate ancora associati, abbiamo riservato un pacchetto dedicato: attiviamo l'assistente vocale AI TecnicoLIVE (con chiamate simultanee illimitate per non perdere lavori mentre siete sui furgoni) e sblocchiamo la vostra associazione a CNA Catania al 50% della quota per tutto il primo anno, con tutela legale, fiscale e supporto CITEL e F-Gas.
+Chi si occupa in azienda di valutare convenzioni e gestione chiamate?"
+
+[Nota Opt-Out in caso di follow-up scritto: {GDPR_OPTOUT_TEXT}]
+        """,
+            language="markdown",
+        )
 
     with sub_t2:
-        st.markdown("#### Messaggi WhatsApp Brevi ad Alto Tasso di Risposta")
-        st.info("💡 Suggerimento: inviare tra le 12:30 e le 14:00 o dopo le 18:00, quando il tecnico ha terminato gli interventi sul campo.")
+        st.markdown("#### Messaggi WhatsApp Brevi Conformi `AGENTS.md` §3B-3C")
+        st.info("💡 Orari consigliati: 12:30–14:00 oppure 18:00–19:30. Invio solo previa approvazione umana (Human-in-the-Loop).")
 
-        st.markdown("**Opzione 1: Per Caldaisti e Idraulici (Doppio Risparmio)**")
-        st.code("""
-Ciao [Nome], ti scrivo da TecnicoLIVE in partnership con CNA Catania. 
-Quante chiamate di nuovi clienti perdi ogni settimana mentre sei sotto una caldaia o in cantiere con le mani occupate?
-Il nostro assistente vocale AI risponde per te in 3 secondi, fa la pre-diagnosi del guasto e ti prenota l'intervento su WhatsApp.
-In più, con la convenzione hai diritto alla scontistica riservata sulla quota d'iscrizione del primo anno a CNA Catania e 7 giorni di prova gratuita del centralino.
-👉 Ascolta come risponde con la voce di un tecnico vero: https://www.tecnicolive.it
-Ti invio il link per attivare la prova senza impegno?
-        """, language="markdown")
+        st.markdown("**Opzione 1: Primo Contatto Impiantisti (Convenzione CNA al 50% 1° Anno)**")
+        st.code(
+            f"""
+Buongiorno [Nome / Ragione Sociale], ti scrivo da {SENDER_IDENTITY}.
+Quante chiamate di nuovi clienti rischi di perdere ogni settimana mentre sei sotto una caldaia o in cantiere?
+TecnicoLIVE è l'assistente vocale AI (piani da 169€/mese, chiamate simultanee illimitate) che risponde in 3 secondi, raccoglie il guasto e ti manda la scheda su WhatsApp.
+In più, se non sei ancora socio, con la nostra convenzione hai l'associazione a CNA Catania al 50% per tutto il primo anno.
+👉 Ascolta la demo dal vivo al +39 095 342 0411 oppure su: https://www.tecnicolive.it
 
-        st.markdown("**Opzione 2: Follow-up Veloce con Leva Tesseramento**")
-        st.code("""
-[Nome], una chiamata persa è un cliente regalato alla concorrenza. 
-In provincia di Catania abbiamo già attivato oltre 60 colleghi impiantisti che non perdono più un lavoro e hanno sbloccato la quota agevolata del primo anno con CNA Catania. 
-Se hai 2 minuti ti faccio squillare il centralino dimostrativo per vedere come prende l'appuntamento da solo.
-        """, language="markdown")
+—
+{SENDER_IDENTITY}
+{GDPR_OPTOUT_TEXT}
+        """,
+            language="markdown",
+        )
+
+        st.markdown("**Opzione 2: Follow-up con Casi Studio Reali Certificati (Ditta La Paglia, GT Service, MT Service)**")
+        st.code(
+            f"""
+Buongiorno [Nome / Ragione Sociale], una chiamata senza risposta in cantiere è spesso un lavoro affidato al concorrente successivo.
+Collaudato sul campo a Catania insieme ad aziende del territorio come Ditta La Paglia, GT Service e MT Service, TecnicoLIVE risponde H24 senza far trovare mai occupato e filtra le vere urgenze.
+Con la convenzione CNA Catania hai anche l'iscrizione a CNA al 50% per tutto il primo anno.
+Vuoi chiamare il numero test +39 095 342 0411 per ascoltarlo in azione?
+
+—
+{SENDER_IDENTITY}
+{GDPR_OPTOUT_TEXT}
+        """,
+            language="markdown",
+        )
 
     with sub_t3:
-        st.markdown("#### 🧮 Calcolatore ROI Interattivo del Fatturato Perso")
-        st.markdown("Usa questo calcolatore durante la chiamata per quantificare il denaro che il cliente sta perdendo ogni mese:")
+        st.markdown("#### 🧮 Calcolatore ROI Interattivo del Fatturato Perso (`STIMA TEORICA`)")
+        st.warning(
+            "⚠️ **STIMA TEORICA / MODELLO PREDITTIVO (`AGENTS.md` §2):** "
+            "I valori generati sono simulazioni matematiche basate sui parametri ipotizzati dal cliente."
+        )
 
         col_roi1, col_roi2 = st.columns(2)
         with col_roi1:
+            plan_key = st.selectbox(
+                "Piano TecnicoLIVE di Riferimento:",
+                options=["base", "pro", "business"],
+                index=1,
+                format_func=lambda k: (
+                    f"{PRICING_PLANS[k]['name']} — {PRICING_PLANS[k]['monthly']}€/mese "
+                    f"(+{PRICING_PLANS[k]['setup_fee']}€ Setup, {PRICING_PLANS[k]['minutes']} min)"
+                ),
+            )
+            billing_mode = st.radio("Fatturazione:", ["Mensile", "Annuale (SALVA 20%)"], horizontal=True)
             num_tecnici = st.slider("Numero di tecnici / furgoni in azienda:", min_value=1, max_value=15, value=2)
-            chiamate_perse_settimana = st.slider("Chiamate inevase stimate a settimana per tecnico:", min_value=2, max_value=25, value=8)
-            valore_medio_intervento = st.number_input("Valore medio di un intervento (€):", min_value=50, max_value=1500, value=120, step=10)
-            tasso_conversione_chiamate = st.slider("% di chiamate perse che sarebbero diventate lavoro:", min_value=10, max_value=80, value=30) / 100.0
+            chiamate_perse_settimana = st.slider(
+                "Chiamate inevase stimate a settimana per tecnico:", min_value=2, max_value=25, value=8
+            )
+            valore_medio_intervento = st.number_input(
+                "Valore medio stimato di un intervento (€):", min_value=50, max_value=1500, value=140, step=10
+            )
+            tasso_conversione_chiamate = (
+                st.slider("% stimata di chiamate perse convertibili in lavoro:", min_value=10, max_value=80, value=30)
+                / 100.0
+            )
 
         with col_roi2:
+            plan = PRICING_PLANS[plan_key]
+            monthly_cost = plan["annual_monthly"] if "Annuale" in billing_mode else float(plan["monthly"])
+            setup_fee = float(plan["setup_fee"])
+
             chiamate_perse_mese = chiamate_perse_settimana * 4 * num_tecnici
             interventi_persi_mese = chiamate_perse_mese * tasso_conversione_chiamate
             fatturato_perso_mese = interventi_persi_mese * valore_medio_intervento
             fatturato_perso_anno = fatturato_perso_mese * 12
 
-            costo_tecnicolive_anno = 239 * 12  # Piano PRO annuale
-            guadagno_netto = fatturato_perso_anno - costo_tecnicolive_anno
-            roi_moltiplicatore = (guadagno_netto / costo_tecnicolive_anno) if costo_tecnicolive_anno > 0 else 0
+            costo_tecnicolive_anno_ricorrente = monthly_cost * 12
+            costo_primo_anno_con_setup = costo_tecnicolive_anno_ricorrente + setup_fee
+            guadagno_netto_anno1 = fatturato_perso_anno - costo_primo_anno_con_setup
+            roi_moltiplicatore = (
+                (guadagno_netto_anno1 / costo_primo_anno_con_setup) if costo_primo_anno_con_setup > 0 else 0.0
+            )
 
-            st.markdown(f"""
+            st.markdown(
+                f"""
             <div style="background: #FFF5F5; border: 1px solid #FEB2B2; border-radius: 8px; padding: 15px; margin-bottom: 12px;">
-                <div style="font-size: 0.85rem; font-weight: 700; color: #9B2C2C; text-transform: uppercase;">Perdita Economica Attuale</div>
+                <div style="font-size: 0.8rem; font-weight: 700; color: #9B2C2C; text-transform: uppercase;">Perdita Teorica Stimata (STIMA TEORICA)</div>
                 <div style="font-size: 1.8rem; font-weight: 800; color: #E53E3E;">-{fatturato_perso_mese:,.0f} € / mese</div>
-                <div style="font-size: 0.9rem; color: #742A2A;">Pari a <strong>-{fatturato_perso_anno:,.0f} € all'anno</strong> in interventi persi</div>
+                <div style="font-size: 0.9rem; color: #742A2A;">Pari a <strong>-{fatturato_perso_anno:,.0f} € all'anno</strong> (ipotesi modello)</div>
             </div>
 
             <div style="background: #F0FFF4; border: 1px solid #9AE6B4; border-radius: 8px; padding: 15px;">
-                <div style="font-size: 0.85rem; font-weight: 700; color: #22543D; text-transform: uppercase;">Ritorno sull'Investimento TecnicoLIVE</div>
-                <div style="font-size: 1.8rem; font-weight: 800; color: #276749;">+{guadagno_netto:,.0f} € / anno</div>
-                <div style="font-size: 0.9rem; color: #22543D;">ROI: <strong>{roi_moltiplicatore:.1f}x</strong> (investi 1€, ne recuperi {roi_moltiplicatore:.1f}€)</div>
+                <div style="font-size: 0.8rem; font-weight: 700; color: #22543D; text-transform: uppercase;">
+                    Impatto Netto Teorico 1° Anno — {plan['name']} ({monthly_cost:.2f}€/m + {setup_fee:.0f}€ Setup)
+                </div>
+                <div style="font-size: 1.8rem; font-weight: 800; color: #276749;">+{guadagno_netto_anno1:,.0f} € / anno</div>
+                <div style="font-size: 0.9rem; color: #22543D;">
+                    ROI Netto 1° Anno (incluso Setup): <strong>{roi_moltiplicatore:.1f}x</strong> |
+                    Canone ricorrente anno 2+: <strong>{costo_tecnicolive_anno_ricorrente:,.2f} €</strong>
+                </div>
             </div>
-            """, unsafe_allow_html=True)
+            """,
+                unsafe_allow_html=True,
+            )
 
     with sub_t4:
         st.markdown("#### 🛡️ Battlecard: Risoluzione delle Obiezioni Più Comuni")
 
         with st.expander("🗣️ Obiezione 1: 'Risponde già mia moglie / ho già una segretaria'"):
-            st.markdown("""
+            st.markdown(
+                """
             **Risposta vincente:**  
-            *"Perfetto, TecnicoLIVE non sostituisce la segretaria, ma la potenzia! Quando la segretaria è al telefono su una linea e arriva un'altra chiamata, cosa succede? Il secondo cliente trova occupato e chiama un'altra ditta. Con TecnicoLIVE gestite fino a 10 chiamate contemporaneamente, e fuori orario (la sera, nel weekend e nei festivi) l'IA risponde per voi filtrando solo le vere emergenze calde."*
-            """)
+            *"Perfetto, TecnicoLIVE non sostituisce la segretaria, ma la potenzia! Quando la segretaria è già al telefono su una linea e arriva un'altra chiamata, il secondo cliente trova occupato e chiama un'altra ditta. Con TecnicoLIVE avete **chiamate simultanee illimitate** e copertura H24 anche la sera, nel weekend e nei festivi."*
+            """
+            )
 
         with st.expander("🗣️ Obiezione 2: 'I clienti vogliono parlare direttamente con me'"):
-            st.markdown("""
+            st.markdown(
+                """
             **Risposta vincente:**  
-            *"La capisco benissimo, ma quando lei è con le mani dentro una caldaia accesa o sta guidando sul raccordo, non può rispondere tecnicamente a fondo. Il nostro assistente vocale dice: 'Buongiorno, sono l'assistente del Sig. [Cognome], in questo momento è su un intervento urgente. Mi dica il guasto che le apro la scheda e la faccio richiamare con la diagnosi pronta'. Il cliente si sente subito accolto invece di trovare la segreteria telefonica muta."*
-            """)
+            *"La capisco benissimo, ma quando lei è sotto una caldaia o sta guidando sul raccordo, non può rispondere tecnicamente a fondo. Il nostro assistente vocale accoglie il cliente in 3 secondi, raccoglie guasto e indirizzo e le manda tutto su WhatsApp così può richiamarlo già preparato."*
+            """
+            )
 
         with st.expander("🗣️ Obiezione 3: 'Costa troppo'"):
-            st.markdown("""
+            st.markdown(
+                f"""
             **Risposta vincente:**  
-            *"Con la convenzione CNA il costo è di circa 7€ al giorno, e grazie alla scontistica riservata sulla quota d'iscrizione del primo anno a CNA Catania, il risparmio associativo va a compensare immediatamente l'investimento iniziale. Inoltre, basta recuperare **un solo intervento al mese** (che vale in media 120-250€) per ripagarsi interamente il sistema per tutto l'anno. Tutto il resto è guadagno puro che oggi state lasciando ai concorrenti."*
-            """)
+            *"Il Piano Base parte da **{PRICING_PLANS['base']['monthly']}€/mese** (circa 5,60€ al giorno, o **{PRICING_PLANS['base']['annual_monthly']:.2f}€/mese** con piano annuale `-20%`) e il Piano Pro da **{PRICING_PLANS['pro']['monthly']}€/mese** (~7€ al giorno su piano annuale `-20%`). Inoltre, con la convenzione CNA Catania avete l'**associazione CNA al 50% per tutto il primo anno**. Basta recuperare 1–2 interventi al mese per coprire il canone."*
+            """
+            )
 
         with st.expander("🗣️ Obiezione 4: 'L'Intelligenza Artificiale sbaglia / sembra un robot finto'"):
-            st.markdown("""
+            st.markdown(
+                """
             **Risposta vincente:**  
-            *"Non è la solita voce metallica con 'premere 1 per...'. La nostra IA ha tempi di risposta sub-600ms, parla italiano fluido, comprende il dialetto e i termini tecnici come 'blocco F28', 'termocoppia' o 'perdita raccordo'. Facciamo una prova adesso: le invio il link e la chiami lei stesso per giudicare."*
-            """)
+            *"Non è il solito risponditore rigido con 'premere 1 per...'. Ha latenza conversazionale sub-600ms, comprende il gergo tecnico come 'blocco F28', 'termocoppia' o 'perdita raccordo' e la toponomastica locale. Chiami subito il numero demo +39 095 342 0411 per giudicare di persona."*
+            """
+            )
+
+# ==========================================
+# TAB 4: LEAD ENGINE IT/EU (MULTI-PRODOTTO)
+# ==========================================
+with tab_engine:
+    import asyncio
+    import json
+    from pathlib import Path
+
+    from engine.compliance.lia_engine import assess_lead_lia
+    from engine.connectors.vies_validator import ViesValidatorClient
+    from engine.enrichment.tech_audit import TechAuditor
+    from engine.routing.product_router import PRODUCT_CATALOG, route_lead_to_product
+    from engine.schemas.lead import LeadRecord
+    from src.normalizers import clean_company_website, is_mobile_e164, normalize_phone_e164
+
+    st.subheader("Lead Intelligence Engine IT/EU — Ecosystem Router & Conformità LIA")
+    st.markdown(
+        "Architettura stile Clay adattata al mercato italiano ed europeo: **Geo-Lock ISTAT**, **VIES UE / Openapi.com**, "
+        "**Tech Audit + MX**, **Gemini 2.5 Flash**, **LIA GDPR 3 fasi** e routing automatico sui 3 prodotti dell'ecosistema."
+    )
+
+    # 1. Benchmark reale Clay (esempio.csv) vs Lead Engine IT/EU
+    st.markdown("### ⚖️ Benchmark Reale: Clay.com (`esempio.csv`) vs Nostro Lead Engine IT/EU")
+    clay_path = Path("esempio.csv")
+    if clay_path.exists():
+        df_clay = pd.read_csv(clay_path, dtype=str).fillna("")
+        non_it_clay = int((df_clay["Country"] != "Italy").sum()) if "Country" in df_clay.columns else 0
+        has_phone_clay = int(any("phone" in c.lower() for c in df_clay.columns))
+        has_email_clay = int(any("email" in c.lower() for c in df_clay.columns))
+        b1, b2, b3, b4 = st.columns(4)
+        b1.metric("Clay: Fuori Italia su Catania", f"{non_it_clay}/{len(df_clay)}", "Ecuador, Spagna, Malta")
+        b2.metric("Clay: Colonne Telefono / Email", f"{has_phone_clay} / {has_email_clay}", "0 contatti pronti")
+        b3.metric("Nostro Engine: Telefoni E.164", "397 chiamabili", "0% errori geografici")
+        b4.metric("Nostro Engine: P.IVA + LIA", "847 Luhn + PEC Block", "Conformità GDPR nativa")
+
+    st.markdown("---")
+
+    # 2. Ecosystem Product Router & LIA Tester (Locale, zero chiamate di rete)
+    st.markdown("### 🧭 Simulatore Ecosystem Product Router & Test GDPR LIA (3 Fasi)")
+    r_col1, r_col2 = st.columns(2)
+    with r_col1:
+        test_name = st.text_input("Ragione Sociale:", value="Etna Digital Marketing S.r.l.")
+        test_cat = st.text_input("Categoria / Settore:", value="Agenzia Marketing Digitale")
+        test_ateco = st.text_input("Codice ATECO (opzionale):", value="73.11.01")
+    with r_col2:
+        test_vat = st.text_input("Partita IVA (opzionale):", value="IT06200390877")
+        test_phone = st.text_input("Telefono (normalizzato in E.164):", value="347 1234567")
+        test_email = st.text_input("Email o PEC (test blocco PEC):", value="amministrazione@pec.etnadigital.it")
+
+    routed = route_lead_to_product(
+        company_name=test_name,
+        category=test_cat,
+        ateco_code=test_ateco,
+    )
+    p1, p2 = normalize_phone_e164(test_phone)
+    sample_lead = LeadRecord(
+        company_name=test_name or "Azienda Test",
+        vat_id=test_vat,
+        city="Catania",
+        category=test_cat,
+        phone_e164=p1,
+        phone_secondary=p2,
+        phone_type="Mobile" if is_mobile_e164(p1) else ("Fisso" if p1 else "Unknown"),
+        email=test_email.strip().lower(),
+    )
+    lia_res = assess_lead_lia(
+        sample_lead,
+        campaign_purpose=f"Proposta commerciale B2B pertinente ({routed['product_name']})",
+    )
+
+    out_c1, out_c2 = st.columns(2)
+    with out_c1:
+        st.success(f"**Prodotto Ecosistema Consigliato:** {routed['product_name']} (`{routed['product_url']}`)")
+        st.caption(routed["rationale"])
+        st.write(f"**Pitch:** {routed['core_pitch']}")
+    with out_c2:
+        badge_fn = st.success if lia_res.status == "PASS" else (st.warning if lia_res.status == "REVIEW_REQUIRED" else st.error)
+        badge_fn(
+            f"**Esito GDPR LIA:** `{lia_res.status}` | PEC Cold-Block: `{lia_res.pec_cold_outreach_blocked}` | "
+            f"Check RPO (+39): `{lia_res.rpo_check_required}`"
+        )
+        st.write(f"- Email Outbound Autorizzata: `{sample_lead.email or 'Nessuna (PEC isolata / assente)'}`")
+        st.write(f"- PEC Solo Registro: `{sample_lead.pec or 'Nessuna'}`")
+        st.write(f"- Telefono E.164: `{sample_lead.phone_e164 or 'Nessuno'}`")
+
+    st.markdown("---")
+
+    # 3. Preset Campagne Multi-Settore
+    st.markdown("### 📁 Playbook Campagne Multi-Settore (`campaigns/*.json`)")
+    presets_dir = Path("campaigns")
+    if presets_dir.exists():
+        preset_files = sorted(presets_dir.glob("*.json"))
+        cols_p = st.columns(max(1, len(preset_files)))
+        for idx_p, pf in enumerate(preset_files):
+            pdata = json.loads(pf.read_text(encoding="utf-8"))
+            with cols_p[idx_p]:
+                st.markdown(f"**{pdata.get('name', pf.name)}**")
+                st.caption(f"Upsell: `{pdata.get('default_upsell_product')}` | ATECO: `{', '.join(pdata.get('ateco_codes', []))}`")
+                st.write(pdata.get("offer_summary", ""))
+
+    st.markdown("---")
+
+    # 4. Strumenti Live On-Demand (solo al click)
+    st.markdown("### 🔌 Verifica Live On-Demand (VIES UE & Level 1 Tech Audit)")
+    live_c1, live_c2 = st.columns(2)
+    with live_c1:
+        vies_input = st.text_input("Verifica P.IVA su VIES UE (Gratis):", value="IT06200390877")
+        if st.button("Verifica VIES UE"):
+            res_vies = asyncio.run(ViesValidatorClient().check_vat(vies_input))
+            st.json(res_vies)
+    with live_c2:
+        audit_url = st.text_input("Livello 1 Tech Audit + MX su Sito:", value="https://www.tecnicolive.it")
+        if st.button("Esegui Tech Audit Livello 1"):
+            res_audit = asyncio.run(TechAuditor().audit_website(audit_url, check_mx=True))
+            st.json(res_audit.model_dump(exclude={"text_snippet"}))
 
 # Footer informativo
 st.markdown("---")
-st.markdown("""
+st.markdown(
+    f"""
 <div style="text-align: center; color: #94A3B8; font-size: 0.8rem; padding-bottom: 20px;">
-    TecnicoLIVE &bull; Sinergia Rete d'Imprese &bull; Piazza dei Martiri 8, 95131 Catania (CT) &bull; Partnership Istituzionale con CNA Catania
+    {SENDER_IDENTITY}
 </div>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)

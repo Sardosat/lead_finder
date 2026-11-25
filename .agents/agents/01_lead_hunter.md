@@ -11,7 +11,7 @@
 L'agente **Lead Hunter & Outreach Specialist** presidia la prima linea dell'acquisizione clienti:
 1. **Scouting Territoriale Mirato**: Identificare tutte le ditte impiantistiche (caldaie, clima, idraulica, elettrico) nei 58 comuni della Città Metropolitana di Catania tramite scraping, registri pubblici e directory.
 2. **Validazione e Igiene dei Dati**: Estrarre la Partita IVA verificandola matematicamente con l'algoritmo di Luhn e prefisso `IT`, normalizzare il numero telefonico nel formato internazionale **E.164** (`+39...`), pulire email e indirizzi.
-3. **Classificazione Status CNA**: Determinare se l'azienda è già socia di CNA Catania (convenzione diretta sconto 15%) o non associata (proposta pacchetto combinato con quota primo anno scontata).
+3. **Classificazione Status CNA**: Determinare se l'azienda è già socia di CNA Catania (proposta diretta TecnicoLIVE) o non associata (proposta pacchetto combinato con **iscrizione a CNA Catania al 50% per tutto il primo anno**).
 4. **Intercettazione Social (Commenti & DM)**: Monitorare commenti sotto i post e i messaggi privati su Facebook, Instagram e LinkedIn, qualificando tempestivamente il contatto e instradandolo verso la chiamata o la prova gratuita.
 
 ---

@@ -44,7 +44,7 @@ Quando lavori, muoviti sempre in queste cartelle ordinate:
 - **Dove salvi il lavoro mentre lo stai creando**:  
   Cartella `produzione/` (divisa in outbound, social, campagne Meta e grafiche).
 - **Dove trovi la checklist per verificare il tuo lavoro**:  
-  Cartella `quality_assurance/` (qui trovi la checklist in 7 punti da spuntare prima di consegnare).
+  Cartella `quality_assurance/` (qui trovi la checklist in 10 punti da spuntare prima di consegnare).
 
 ---
 

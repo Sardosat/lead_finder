@@ -1,90 +1,125 @@
 """
 clay_engine.py — Motore di Intelligence GTM stile Clay.com per TecnicoLIVE.
 
-Implementa:
-1. WaterfallEnricher: logica di cascata dati e normalizzazione E.164.
-2. ClaygentResearcher: estrazione semantica marchi caldaie/clima, servizi H24, F-Gas/CITEL.
-3. IntentSignalTracker: identificazione dei trigger d'acquisto e sovraccarico chiamate.
-4. AccountScorer: calcolo punteggio ICP (0-100) e attribuzione Tier A / Tier B / Tier C.
-5. IcebreakerGenerator: generazione di ganci conversazionali 1-to-1 iper-personalizzati.
+Conforme a AGENTS.md (Zero Hallucination Policy & B2B GDPR):
+1. ClaygentResearcher: estrazione semantica reale da ragione sociale e sito web (mai marchi inventati).
+2. IntentSignalTracker: trigger operativi di cantiere coerenti con i dati reali.
+3. AccountScorer: punteggio ICP (0-100) rigoroso (nessun Tier A senza telefono E.164 o con URL portale).
+4. IcebreakerGenerator: ganci 1-to-1 onesti con leva associativa CNA al 50% per il 1° anno + footer GDPR/opt-out.
 """
 
 import re
-import urllib.parse
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, List
 import pandas as pd
+
+from src.config import GDPR_OPTOUT_TEXT, SENDER_IDENTITY
+from src.normalizers import (
+    is_mobile_e164,
+    is_valid_company_website,
+    normalize_phone_e164,
+)
+from src.piva_validator import validate_piva
 
 # ── 1. DIZIONARI SEMANTICI E REGOLE DI CLASSIFICAZIONE ──────────────────────
 
 MARCHI_CALDAIE = [
-    "Vaillant", "Buderus", "Baxi", "Bosch", "Ariston", "Ferroli", "Beretta", "Immergas", "Junkers", "Hermann"
+    "Vaillant", "Buderus", "Baxi", "Bosch", "Ariston", "Ferroli", "Beretta",
+    "Immergas", "Junkers", "Hermann", "Riello", "Savio", "Viessmann", "Sime",
+    "Chaffoteaux", "Biasi", "Saunier Duval", "Lamborghini", "Fondital",
+    "Radiant", "Unical", "Sylber", "Galletti", "Bongioanni",
 ]
 
 MARCHI_CLIMA = [
-    "Daikin", "Mitsubishi", "Panasonic", "Samsung", "Fujitsu", "Olimpia Splendid", "Hisense", "LG"
+    "Daikin", "Mitsubishi", "Panasonic", "Samsung", "Fujitsu",
+    "Olimpia Splendid", "Hisense", "LG", "Toshiba", "Haier", "Midea",
+    "Gree", "Carrier", "Hitachi", "Aermec", "Clivet", "Emmeti",
+    "Innova", "Aircon", "Daitsu",
 ]
 
 KEYWORDS_H24 = [
-    "h24", "24/7", "24 ore", "pronto intervento", "reperibilità", "emergenza", "notturno", "festivi", "sabato"
+    "h24", "24/7", "24 ore", "pronto intervento", "reperibilità", "reperibilita",
+    "emergenza", "notturno", "festivi", "urgenze",
 ]
 
 KEYWORDS_NORMATIVE = [
-    "citel", "f-gas", "fgas", "bollino blu", "efficienza energetica", "dm 37/08", "curit", "catasto impianti"
+    "citel", "f-gas", "fgas", "bollino blu", "efficienza energetica",
+    "dm 37/08", "37/08", "curit", "catasto impianti",
 ]
 
-MOBILE_PREFIXES = ("32", "33", "34", "35", "36", "37", "38", "39")
+GDPR_FOOTER = f"{SENDER_IDENTITY} | {GDPR_OPTOUT_TEXT}"
 
 
-# ── 2. CLAYGENT RESEARCHER: ESTRAZIONE SEMANTICA ─────────────────────────────
+# ── 2. CLAYGENT RESEARCHER: ESTRAZIONE SEMANTICA REALE ──────────────────────
 
-def extract_semantic_signals(text_corpus: str, company_name: str, niche: str) -> Dict[str, Any]:
+def extract_semantic_signals(
+    text_corpus: str,
+    company_name: str,
+    niche: str,
+    website_text: str = "",
+) -> Dict[str, Any]:
     """
-    Analizza il testo del sito/scheda aziendale per estrarre marchi trattati,
-    presenza servizio H24 e certificazioni normative (Claygent-style).
+    Analizza esclusivamente dati reali (ragione sociale, categoria, testo del sito web).
+    Non inventa MAI marchi o certificazioni di default se non rilevati nei testi.
     """
-    corpus_lower = text_corpus.lower()
-    
-    # Rilevamento Marchi
-    marchi_trovati = []
+    combined = f"{text_corpus} {website_text}".strip()
+    corpus_lower = combined.lower()
+
+    marchi_trovati: List[str] = []
+    seen_brands = set()
     for m in MARCHI_CALDAIE + MARCHI_CLIMA:
-        if re.search(r'\b' + re.escape(m.lower()) + r'\b', corpus_lower):
-            marchi_trovati.append(m)
-            
-    # Se nessun marchio rilevato da testo, assegna marchi tipici della nicchia
-    if not marchi_trovati:
-        if "caldaie" in niche.lower() or "termoidraulica" in niche.lower():
-            # Assegna i marchi leader di mercato coperti da TecnicoLIVE
-            marchi_trovati = ["Vaillant", "Baxi"]
-        elif "climatizzat" in niche.lower() or "hvac" in niche.lower():
-            marchi_trovati = ["Daikin", "Mitsubishi"]
-        else:
-            marchi_trovati = ["Bosch", "Ariston"]
+        if re.search(r"\b" + re.escape(m.lower()) + r"\b", corpus_lower):
+            if m.lower() not in seen_brands:
+                seen_brands.add(m.lower())
+                marchi_trovati.append(m)
 
-    # Rilevamento Servizio Emergenza / H24
-    has_h24 = any(re.search(r'\b' + re.escape(k) + r'\b', corpus_lower) for k in KEYWORDS_H24)
-    if "pronto intervento" in company_name.lower():
-        has_h24 = True
+    marchi_verificati = len(marchi_trovati) > 0
+    marchi_str = ", ".join(marchi_trovati) if marchi_verificati else "Non rilevato"
 
-    # Rilevamento Certificazioni
-    certificazioni = [k.upper() for k in KEYWORDS_NORMATIVE if k in corpus_lower]
-    if not certificazioni:
-        certificazioni = ["CITEL Sicilia", "F-Gas"]
+    # Reperibilità H24 / Pronto Intervento (solo se riscontrata in nome o sito)
+    h24_corpus = f"{company_name} {text_corpus} {website_text}".lower()
+    has_h24 = any(re.search(r"\b" + re.escape(k) + r"\b", h24_corpus) for k in KEYWORDS_H24)
 
-    # Segnale d'Intento Stimato (Sovraccarico Chiamate)
-    trigger = "Stagionalità Picco Interventi Catania"
+    # Certificazioni normative rilevate realmente
+    cert_map = {
+        "citel": "CITEL Sicilia",
+        "f-gas": "F-Gas",
+        "fgas": "F-Gas",
+        "bollino blu": "Bollino Blu",
+        "efficienza energetica": "Efficienza Energetica",
+        "dm 37/08": "DM 37/08",
+        "37/08": "DM 37/08",
+        "curit": "CURIT",
+        "catasto impianti": "Catasto Impianti",
+    }
+    certificazioni: List[str] = []
+    for kw in KEYWORDS_NORMATIVE:
+        if re.search(r"\b" + re.escape(kw) + r"\b", corpus_lower):
+            label = cert_map.get(kw, kw.upper())
+            if label not in certificazioni:
+                certificazioni.append(label)
+
+    cert_str = ", ".join(certificazioni) if certificazioni else "Non rilevate"
+
+    # Trigger operativo coerente con la nicchia e i segnali reali
+    niche_l = (niche or "").lower()
     if has_h24:
         trigger = "Reperibilità Emergenze H24 Attiva (Rischio chiamate perse notturne/weekend)"
-    elif "caldaie" in niche.lower():
-        trigger = "Scadenza Bollino Blu CITEL Sicilia (Centralini saturi)"
-    elif "climatizzat" in niche.lower():
-        trigger = "Ondate Calore Estive Etna (Sovraccarico richieste condizionatori)"
+    elif "caldaie" in niche_l or "termoidraulica" in niche_l or "idraulic" in niche_l:
+        trigger = "Stagionalità Riscaldamento & Adempimenti CITEL Sicilia"
+    elif "climatizzat" in niche_l or "hvac" in niche_l:
+        trigger = "Picchi Stagionali Climatizzazione Provincia di Catania"
+    elif "elettric" in niche_l:
+        trigger = "Interventi Elettrici & Dichiarazioni DM 37/08"
+    else:
+        trigger = "Gestione Chiamate in Cantiere — Settore Impiantistico"
 
     return {
         "marchi": marchi_trovati,
-        "marchi_str": ", ".join(marchi_trovati),
+        "marchi_str": marchi_str,
+        "marchi_verificati": marchi_verificati,
         "is_h24": has_h24,
-        "certificazioni": ", ".join(certificazioni),
-        "trigger": trigger
+        "certificazioni": cert_str,
+        "trigger": trigger,
     }
 
 
@@ -92,73 +127,86 @@ def extract_semantic_signals(text_corpus: str, company_name: str, niche: str) ->
 
 def calculate_lead_score(row: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Calcola il punteggio ICP matematico da 0 a 100 e assegna il Tier:
-    - Tier A (VIP / Hot): 80 - 100 pt
-    - Tier B (Warm): 55 - 79 pt
-    - Tier C (Cold / Nurturing): < 55 pt
+    Calcola il punteggio ICP (0-100) e assegna il Tier:
+    - Telefono E.164 mobile (+393...): +25 pt | fisso (+390...): +15 pt | assente: 0 pt
+    - P.IVA Luhn valida (IT...): +20 pt
+    - Nicchia core (Termoidraulica/HVAC/Caldaie): +20 pt | Altre impiantistiche: +10 pt
+    - Stato CNA: Non Associato (+15 pt), Associato Rilevato (+10 pt), Da Verificare (+5 pt)
+    - Sito Web aziendale reale (esclusi portali): +15 pt
+    - Marchi reali verificati: +5 pt
+    VINCOLO DI QUALITÀ: Se manca un telefono E.164 valido, il punteggio viene limitato a <= 45 (Tier C).
     """
     score = 0
-    phone = str(row.get("Phone", "")).strip()
+    raw_phone = str(row.get("Phone", "")).strip()
+    primary_phone, _ = normalize_phone_e164(raw_phone)
+    has_valid_phone = bool(primary_phone)
+    is_mobile = is_mobile_e164(primary_phone)
+
     piva = str(row.get("Partita_IVA", "")).strip()
     website = str(row.get("Website", "")).strip()
     stato_cna = str(row.get("Stato_CNA", "")).upper()
     niche = str(row.get("Nicchia_Target", "")).lower()
+    marchi_verif = str(row.get("Marchi_Verificati", "")).upper() in ("SI", "TRUE", "1")
+    if not marchi_verif:
+        m_val = str(row.get("Marchi_Rilevati", "")).strip()
+        marchi_verif = bool(m_val and m_val.lower() not in ("non rilevato", "nan", "none"))
 
-    # 1. Presenza e Qualità del Telefono (Max 25 pt)
-    clean_phone = re.sub(r'[\s\-\.\(\)]', '', phone)
-    is_mobile = any(clean_phone.startswith(f"+39{p}") or clean_phone.startswith(p) for p in MOBILE_PREFIXES)
+    # 1. Telefono (Max 25)
     if is_mobile:
-        score += 25  # Cellulare diretto del titolare / reperibile (massimo valore WhatsApp)
-    elif len(clean_phone) >= 6:
-        score += 15  # Numero fisso con prefisso (es. 095)
+        score += 25
+    elif has_valid_phone:
+        score += 15
 
-    # 2. Partita IVA Validata con formula Luhn IT (Max 20 pt)
-    if piva.startswith("IT") and len(piva) == 13:
+    # 2. Partita IVA Luhn (Max 20)
+    if piva.startswith("IT") and validate_piva(piva):
         score += 20
-    elif piva:
-        score += 10
+    elif piva and validate_piva(piva):
+        score += 15
 
-    # 3. Match Marchi Assistiti da TecnicoLIVE (Max 20 pt)
-    # Se tratta caldaie o climatizzazione compatibili con i manuali Buderus/Vaillant/Baxi/Bosch
-    if any(k in niche for k in ["caldaie", "climatizzazione", "termoidraulica", "hvac"]):
+    # 3. Pertinenza Nicchia (Max 20)
+    if any(k in niche for k in ("caldaie", "climatizzazione", "termoidraulica", "idraulica", "hvac")):
         score += 20
     else:
         score += 10
 
-    # 4. Stato Associativo CNA (Max 15 pt)
-    # I non associati hanno il punteggio massimo per la vendita combinata con quota 1° anno
+    # 4. Stato CNA (Max 15)
     if "NON ASSOCIATO" in stato_cna or "TARGET TESSERAMENTO" in stato_cna:
         score += 15
-    elif "ASSOCIATO" in stato_cna:
-        score += 10  # Già associato: target vendita diretta con sconto canone
-
-    # 5. Presenza Sito Web / Digital Footprint (Max 20 pt)
-    if website and website.startswith("http"):
-        score += 20
-    elif website:
+    elif "ASSOCIATO RILEVATO" in stato_cna:
         score += 10
+    else:
+        score += 5
 
-    # Attribuzione del Tier
+    # 5. Sito Web Aziendale Reale (Max 15) + Marchi Verificati (Max 5)
+    if is_valid_company_website(website):
+        score += 15
+    if marchi_verif:
+        score += 5
+
     score = min(100, score)
-    if score >= 80:
+    if not has_valid_phone:
+        score = min(score, 45)
+
+    if score >= 80 and has_valid_phone:
         tier = "Tier A 🔥 (VIP / Priorità Immediata)"
         tier_short = "Tier A"
-    elif score >= 55:
+    elif score >= 55 and has_valid_phone:
         tier = "Tier B 🟡 (Warm / Retargeting RSK)"
         tier_short = "Tier B"
     else:
-        tier = "Tier C ❄️ (Cold / Nurturing)"
+        tier = "Tier C ❄️ (Cold / Da Arricchire)" if not has_valid_phone else "Tier C ❄️ (Cold / Nurturing)"
         tier_short = "Tier C"
 
     return {
         "score": score,
         "tier": tier,
         "tier_short": tier_short,
-        "is_mobile": is_mobile
+        "is_mobile": is_mobile,
+        "has_valid_phone": has_valid_phone,
     }
 
 
-# ── 4. ICEBREAKER GENERATOR: GANCI CONVERSAZIONALI 1-TO-1 ────────────────────
+# ── 4. ICEBREAKER GENERATOR: GANCI ONESTI E CONFORMI GDPR ───────────────────
 
 def generate_dynamic_icebreaker(
     comp_name: str,
@@ -167,93 +215,125 @@ def generate_dynamic_icebreaker(
     marchi_str: str,
     is_h24: bool,
     stato_cna: str,
-    trigger: str
+    trigger: str,
+    marchi_verificati: bool = False,
 ) -> str:
     """
-    Genera un incipit 1-to-1 personalizzato in stile Clay.com.
-    Fa leva sui marchi reali, sulla toponomastica locale e sul problema delle chiamate perse.
+    Genera un incipit 1-to-1 personalizzato in stile Clay.com basato SOLO su fatti verificati:
+    - Cita i marchi solo se marchi_verificati=True (Zero Hallucination Policy).
+    - Propone associazione CNA Catania al 50% per il 1° anno ai non associati / da verificare.
     """
     clean_city = city.strip() if city else "Catania e provincia"
-    primo_marchio = marchi_str.split(",")[0].strip() if marchi_str else "caldaie e impianti"
+    clean_niche = niche.strip() if niche else "impiantistica"
+    has_real_brands = marchi_verificati and bool(marchi_str) and marchi_str != "Non rilevato"
 
     if "ASSOCIATO RILEVATO" in stato_cna:
-        if is_h24:
+        if has_real_brands and is_h24:
             return (
-                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE. "
-                f"Abbiamo visto che a {clean_city} siete tra i punti di riferimento per l'assistenza {marchi_str} e offrite servizio di reperibilità. "
-                f"In quanto azienda già convenzionata con CNA Catania, vi abbiamo riservato l'assistente vocale AI per coprire le chiamate urgenti notturne e del weekend, "
-                f"così non dovete più tenere il telefono sul comodino mentre riposate."
+                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                f"Abbiamo visto che a {clean_city} operate su {marchi_str} con servizio di reperibilità: "
+                f"grazie alla partnership con CNA Catania possiamo attivare l'assistente vocale AI per filtrare "
+                f"le emergenze notturne e del weekend senza perdere chiamate in cantiere."
+            )
+        elif has_real_brands:
+            return (
+                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                f"Ho notato la vostra attività a {clean_city} su {marchi_str}: "
+                f"come azienda collegata a CNA Catania potete provare il nostro centralino vocale AI che risponde "
+                f"in 3 secondi quando siete in cantiere e invia la scheda guasto su WhatsApp."
             )
         else:
             return (
-                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE. "
-                f"Ho notato la vostra presenza a {clean_city} specializzata su {marchi_str}. "
-                f"Come ditta collegata a CNA Catania avete diritto immediato al nostro centralino vocale AI con sconto di categoria del 15%: "
-                f"risponde in 3 secondi quando avete le mani occupate in cantiere e vi invia la diagnosi del guasto direttamente su WhatsApp."
+                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                f"Come impresa di {clean_niche} a {clean_city} collegata a CNA Catania, potete testare "
+                f"il centralino vocale AI dedicato al settore: risponde alle chiamate dei clienti mentre siete "
+                f"sul campo e invia i dettagli dell'intervento direttamente su WhatsApp."
             )
     else:
-        # Non associato CNA: fa leva sul doppio vantaggio economico (TecnicoLIVE + quota 1° anno CNA)
-        if is_h24:
+        # Non associato o da verificare: leva associativa CNA al 50% per il 1° anno
+        if has_real_brands and is_h24:
             return (
-                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE. "
-                f"So che a {clean_city} gestite interventi su {marchi_str} con reperibilità rapida. "
-                f"Quante volte vi capita di perdere chiamate di emergenza mentre siete già impegnati su un altro cliente? "
-                f"Con l'accordo ufficiale CNA Catania attiviamo l'assistente vocale AI che prenota per voi e sblocchiamo il vostro tesseramento CNA "
-                f"con una forte scontistica riservata sulla quota d'iscrizione del primo anno."
+                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                f"Abbiamo visto che a {clean_city} gestite assistenza su {marchi_str} anche in reperibilità: "
+                f"quante chiamate urgenti rischiate di perdere durante un altro intervento? "
+                f"Con la convenzione CNA Catania attivate l'assistente vocale AI e l'iscrizione a CNA al 50% per tutto il primo anno."
+            )
+        elif has_real_brands:
+            return (
+                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                f"Seguendo le ditte di {clean_niche} a {clean_city} specializzate su {marchi_str}, "
+                f"sappiamo quanto sia facile perdere chiamate mentre si è in cantiere o alla guida. "
+                f"Con la partnership CNA Catania potete attivare l'assistente vocale AI e la quota associativa CNA del primo anno al 50%."
+            )
+        elif is_h24:
+            return (
+                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                f"Visto il vostro servizio di {clean_niche} con reperibilità a {clean_city}, "
+                f"l'assistente vocale AI vi permette di non perdere chiamate notturne o mentre siete in intervento, "
+                f"con accesso alla convenzione CNA Catania (associazione al 50% per il primo anno)."
             )
         else:
             return (
-                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE. "
-                f"Seguendo il settore {niche} nella zona di {clean_city}, sappiamo quanto sia facile perdere telefonate di nuovi clienti mentre si è alla guida o sotto una caldaia {primo_marchio}. "
-                f"Stiamo attivando nella vostra zona la convenzione CNA Catania: l'assistente vocale risponde per voi H24 e sbloccate l'iscrizione a CNA a condizioni agevolate per tutto il primo anno."
+                f"Buongiorno {comp_name}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                f"Per le imprese di {clean_niche} operanti a {clean_city}, una chiamata persa in cantiere è spesso un cliente perso. "
+                f"Con la convenzione CNA Catania attivate l'assistente vocale AI su WhatsApp e l'associazione a CNA al 50% per il primo anno."
             )
+
+
+def format_full_whatsapp_draft(icebreaker: str) -> str:
+    """Compone la bozza WhatsApp completa conforme a AGENTS.md §3B-3C (mittente + opt-out)."""
+    return f"{icebreaker}\n\n—\n{SENDER_IDENTITY}\n{GDPR_OPTOUT_TEXT}"
 
 
 # ── 5. PIPELINE DI ARRICCHIMENTO COMPLETA DEL DATASET ───────────────────────
 
 def enrich_dataset_with_clay_engine(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Prende un DataFrame di lead e calcola per tutte le righe i campi stile Clay:
-    - Marchi_Rilevati
-    - Servizio_H24
-    - Trigger_Segnale
-    - ICP_Score
-    - Lead_Tier
-    - Icebreaker_1to1
+    Calcola per tutte le righe del DataFrame i campi Clay verificati e conformi:
+    - Marchi_Rilevati, Marchi_Verificati, Certificazioni_Rilevate
+    - Servizio_H24, Trigger_Segnale
+    - ICP_Score, Lead_Tier
+    - Icebreaker_1to1, Footer_GDPR_OptOut, Messaggio_WhatsApp_Completo
     """
     df_out = df.copy()
+    if df_out.empty:
+        return df_out
 
-    marchi_list = []
-    h24_list = []
-    trigger_list = []
-    score_list = []
-    tier_list = []
-    icebreaker_list = []
+    marchi_list: List[str] = []
+    marchi_verif_list: List[str] = []
+    cert_list: List[str] = []
+    h24_list: List[str] = []
+    trigger_list: List[str] = []
+    score_list: List[int] = []
+    tier_list: List[str] = []
+    icebreaker_list: List[str] = []
+    gdpr_footer_list: List[str] = []
+    wa_full_list: List[str] = []
 
     for _, row in df_out.iterrows():
-        comp_name = str(row.get("Company Name", ""))
-        niche = str(row.get("Nicchia_Target", ""))
-        city = str(row.get("City", ""))
-        stato_cna = str(row.get("Stato_CNA", ""))
-        category = str(row.get("Category", ""))
+        comp_name = str(row.get("Company Name", "")).strip()
+        niche = str(row.get("Nicchia_Target", "")).strip()
+        city = str(row.get("City", "")).strip()
+        stato_cna = str(row.get("Stato_CNA", "")).strip()
+        category = str(row.get("Category", "")).strip()
+        website_text = str(row.get("Website_Text_Snippet", "")).strip()
 
-        # Testo combinato per analisi Claygent
         text_corpus = f"{comp_name} {niche} {category} {city}"
+        sem = extract_semantic_signals(text_corpus, comp_name, niche, website_text=website_text)
 
-        # 1. Estrazione Segnali Semantici
-        sem = extract_semantic_signals(text_corpus, comp_name, niche)
         marchi_list.append(sem["marchi_str"])
+        marchi_verif_list.append("SI" if sem["marchi_verificati"] else "NO")
+        cert_list.append(sem["certificazioni"])
         h24_list.append("SI (Reperibilità)" if sem["is_h24"] else "NO (Orario Ufficio)")
         trigger_list.append(sem["trigger"])
 
-        # 2. Calcolo Scoring ICP
         row_dict = row.to_dict()
         row_dict["Marchi_Rilevati"] = sem["marchi_str"]
+        row_dict["Marchi_Verificati"] = "SI" if sem["marchi_verificati"] else "NO"
         sc = calculate_lead_score(row_dict)
         score_list.append(sc["score"])
         tier_list.append(sc["tier"])
 
-        # 3. Generazione Icebreaker 1-to-1
         ib = generate_dynamic_icebreaker(
             comp_name=comp_name,
             city=city,
@@ -261,15 +341,22 @@ def enrich_dataset_with_clay_engine(df: pd.DataFrame) -> pd.DataFrame:
             marchi_str=sem["marchi_str"],
             is_h24=sem["is_h24"],
             stato_cna=stato_cna,
-            trigger=sem["trigger"]
+            trigger=sem["trigger"],
+            marchi_verificati=sem["marchi_verificati"],
         )
         icebreaker_list.append(ib)
+        gdpr_footer_list.append(GDPR_FOOTER)
+        wa_full_list.append(format_full_whatsapp_draft(ib))
 
     df_out["Marchi_Rilevati"] = marchi_list
+    df_out["Marchi_Verificati"] = marchi_verif_list
+    df_out["Certificazioni_Rilevate"] = cert_list
     df_out["Servizio_H24"] = h24_list
     df_out["Trigger_Segnale"] = trigger_list
     df_out["ICP_Score"] = score_list
     df_out["Lead_Tier"] = tier_list
     df_out["Icebreaker_1to1"] = icebreaker_list
+    df_out["Footer_GDPR_OptOut"] = gdpr_footer_list
+    df_out["Messaggio_WhatsApp_Completo"] = wa_full_list
 
     return df_out

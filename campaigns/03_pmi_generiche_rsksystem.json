@@ -1,0 +1,33 @@
+{
+  "campaign_id": "pmi_servizi_rsksystem_2026",
+  "name": "PMI Locali (Cliniche, Studi Tecnici, Edilizia & Commercio) — RSK System",
+  "target_vertical": "PMI Servizi B2B/B2C, Cliniche Mediche/Estetiche, Studi Tecnici & Costruzioni",
+  "ateco_codes": ["86.23.00", "71.12.10", "41.20.00", "46.73.20"],
+  "nace_codes": ["Q86.23", "M71.12", "F41.20", "G46.73"],
+  "search_queries": [
+    "clinica estetica Catania",
+    "studio dentistico Acireale",
+    "rivendita materiali edili Catania",
+    "studio tecnico ingegneria Misterbianco"
+  ],
+  "geo": {
+    "country_code": "IT",
+    "region": "Sicilia",
+    "province_code": "CT",
+    "municipalities": ["Catania", "Acireale", "Misterbianco", "Belpasso"],
+    "istat_codes": ["087015", "087004", "087029", "087007"],
+    "strict_country_lock": true
+  },
+  "default_upsell_product": "rsksystem",
+  "offer_summary": "RSK System (rsksystem.com): CRM sovrano, Smart Lists dinamiche, automazioni WhatsApp/Email e sync Meta Ads per convertire i lead locali.",
+  "enrichment": {
+    "enable_l1_tech_audit": true,
+    "enable_l1_mx_check": true,
+    "enable_l1_vies": true,
+    "enable_l2_gemini_ai": true,
+    "enable_l3_openapi_registry": false,
+    "l3_endpoint": "IT-start",
+    "max_l3_budget_eur": 5.0
+  },
+  "max_results_per_query": 20
+}

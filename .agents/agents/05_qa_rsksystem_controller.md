@@ -36,7 +36,7 @@ flowchart TD
     In["Output depositato in /produzione"] --> P1["Passo 1: Controllo Tecnico Caratteri & Media<br>(Script ad_copy_validator.py)"]
     P1 -- OK --> P2["Passo 2: Audit Linguistico Brand Voice<br>(Script ai_content_detector.py)"]
     P1 -- KO --> Er1["Rigetto con motivo e istruzione di correzione"]
-    P2 -- OK --> P3["Passo 3: Conformità RSK System<br>(Checklist Pre-Lancio 7 punti)"]
+    P2 -- OK --> P3["Passo 3: Conformità RSK System<br>(Checklist Pre-Lancio 10 punti)"]
     P2 -- KO --> Er2["Rigetto per presenza parole vietate / tono non conforme"]
     P3 -- OK --> P4["Passo 4: Verifica Vincoli AGENTS.md<br>(Opt-out, GDPR, Human-in-the-Loop)"]
     P3 -- KO --> Er3["Rigetto per mancata normalizzazione E.164 o esclusioni assenti"]
@@ -54,7 +54,8 @@ flowchart TD
 - [ ] L'audience selezionata è in stato **Ready**?
 - [ ] L'esclusione della lista `Clienti Già Acquisiti` è attiva a livello di Ad Set?
 - [ ] La grafica rispetta il formato (1:1 o 4:5) e ha meno del 20% di testo?
-- [ ] È citata la convenzione CNA Catania con quota primo anno scontata per i non associati?
+- [ ] È citata la convenzione CNA Catania con **associazione CNA al 50% per il primo anno** per i non associati?
+- [ ] I prezzi citati corrispondono al listino ufficiale (Base 169€ + 399€ setup, Pro 269€ + 599€ setup, Business 369€ + 699€ setup, -20% annuale)?
 
 ### Per Liste Contatti e Smart Lists:
 - [ ] Tutti i numeri di telefono hanno il prefisso internazionale `+39` (standard E.164)?

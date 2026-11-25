@@ -1,0 +1,33 @@
+{
+  "campaign_id": "impiantisti_catania_tecnicolive_2026",
+  "name": "Impiantisti, Termoidraulici & Elettricisti — Catania e Provincia",
+  "target_vertical": "Termoidraulica, Climatizzazione, Caldaie & Impianti Elettrici",
+  "ateco_codes": ["43.22.01", "43.22.02", "43.21.01", "43.29.01"],
+  "nace_codes": ["F43.22", "F43.21", "F43.29"],
+  "search_queries": [
+    "termoidraulica Catania",
+    "assistenza caldaie Acireale",
+    "installatore climatizzatori Misterbianco",
+    "elettricista pronto intervento Paternò"
+  ],
+  "geo": {
+    "country_code": "IT",
+    "region": "Sicilia",
+    "province_code": "CT",
+    "municipalities": ["Catania", "Acireale", "Misterbianco", "Paternò", "Giarre", "Belpasso", "Valverde"],
+    "istat_codes": ["087015", "087004", "087029", "087033", "087017", "087007", "087052"],
+    "strict_country_lock": true
+  },
+  "default_upsell_product": "tecnicolive",
+  "offer_summary": "TecnicoLIVE Voice AI H24 chiamate simultanee illimitate (Base 169€, Pro 269€, Business 369€, -20% annuale) + associazione CNA Catania al 50% per il 1° anno.",
+  "enrichment": {
+    "enable_l1_tech_audit": true,
+    "enable_l1_mx_check": true,
+    "enable_l1_vies": true,
+    "enable_l2_gemini_ai": true,
+    "enable_l3_openapi_registry": false,
+    "l3_endpoint": "IT-start",
+    "max_l3_budget_eur": 5.0
+  },
+  "max_results_per_query": 20
+}

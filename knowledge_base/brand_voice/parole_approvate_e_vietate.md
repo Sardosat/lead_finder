@@ -27,4 +27,4 @@ I collaboratori e gli agenti devono conformarsi categoricamente a questo prontua
 - **Climatizzazione**: Gruppo frigo, gas R32, R410A, perdita circuito, ricarica condizionatore, dual split, pompa di calore aria-acqua.
 - **Normative & Adempimenti**: Catasto Impianti Termici Sicilia (CITEL), Bollino Blu, libretto d'impianto, patentino F-Gas, conformità DM 37/08.
 - **Lavoro Quotidiano**: Furgone, cantiere, mani occupate/sporche di grasso, chiamata persa, preventivo inviato, scheda intervento, notifica WhatsApp immediata.
-- **Istituzioni**: CNA Catania, Piazza dei Martiri 8, convenzione di categoria, scontistica quota d'iscrizione primo anno.
+- **Istituzioni**: CNA Catania, Piazza dei Martiri 8, convenzione di categoria, associazione CNA al 50% per il primo anno.

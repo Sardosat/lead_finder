@@ -1,16 +1,15 @@
 """
 Generatore Report PDF Esecutivo Completo per il CEO
 Censimento Integrale Impiantistica & Termoidraulica Catania & Provincia (Tutti i 58 Comuni)
-Include tutte le 696 aziende qualificate con P.IVA, Stato CNA, ICP Score e Icebreaker 1-to-1.
+Include tutte le ditte pulite e deduplicate del verticale con P.IVA, telefoni E.164,
+Stato CNA, ICP Score, marchi reali verificati e Icebreaker 1-to-1 onesti.
 """
 
 import asyncio
-import os
-import shutil
+import html as html_lib
 import sys
 from pathlib import Path
 
-# Assicura che la root del progetto sia in sys.path
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
@@ -18,58 +17,143 @@ if str(BASE_DIR) not in sys.path:
 import pandas as pd
 from playwright.async_api import async_playwright
 
-from src.config import DATA_DIR, REPORTS_DIR
+from src.config import (
+    DATA_DIR,
+    OUTPUT_OUTBOUND_CSV,
+    OUTPUT_TERMOIDRAULICA_CSV,
+    PDF_TERMOIDRAULICA_FILE,
+    SENDER_IDENTITY,
+)
 
-PDF_OUTPUT_PATH = REPORTS_DIR / "Report_Termoidraulica_Catania_Provincia_CNA.pdf"
-BRAIN_DIR = Path(r"C:\Users\nicol\.gemini\antigravity\brain\466c6750-da56-4657-9200-3e9d190836db")
+PDF_OUTPUT_PATH = PDF_TERMOIDRAULICA_FILE
+
+
+def _esc(val) -> str:
+    return html_lib.escape("" if val is None else str(val), quote=True)
 
 
 def build_termoidraulica_html(df: pd.DataFrame) -> str:
     totale = len(df)
-    
-    # Metriche Telefoniche
-    cellulari = len(df[df["Phone"].str.contains(r"\+393", na=False)])
-    perc_cell = round((cellulari / totale * 100), 1) if totale > 0 else 0
-    
-    # Metriche Fiscali
-    piva_valide = len(df[df["Partita_IVA"].fillna("").astype(str).str.startswith("IT")])
-    perc_piva = round((piva_valide / totale * 100), 1) if totale > 0 else 0
-    
-    # Metriche CNA
-    associati = len(df[df["Stato_CNA"].str.contains("ASSOCIATO RILEVATO", na=False)])
-    target_cna = len(df[df["Stato_CNA"].str.contains("NON ASSOCIATO", na=False)])
-    da_verificare = totale - associati - target_cna
-    
-    # Metriche Tier Clay
-    tier_a = len(df[df.get("Lead_Tier", pd.Series([""]*totale)).str.contains("Tier A", na=False)])
-    tier_b = len(df[df.get("Lead_Tier", pd.Series([""]*totale)).str.contains("Tier B", na=False)])
-    tier_c = len(df[df.get("Lead_Tier", pd.Series([""]*totale)).str.contains("Tier C", na=False)])
-    
-    # Distribuzione Geografica
-    area_series = df.get("Area_Geografica", df["City"])
-    area_counts = area_series.value_counts().to_dict()
-    
-    # Top Comuni
-    top_comuni = df["City"].value_counts().head(10).to_dict()
+    safe_tot = max(1, totale)
 
-    # Marchi rilevati
-    marchi_stats = {
-        "Vaillant": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Vaillant", na=False)]),
-        "Baxi": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Baxi", na=False)]),
-        "Buderus": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Buderus", na=False)]),
-        "Bosch": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Bosch", na=False)]),
-        "Ariston": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Ariston", na=False)]),
-        "Immergas": len(df[df.get("Marchi_Rilevati", pd.Series([""]*totale)).str.contains("Immergas", na=False)]),
-    }
+    phones = df.get("Phone", pd.Series([""] * totale)).fillna("").astype(str)
+    chiamabili = int((phones.str.strip() != "").sum())
+    cellulari = int(phones.str.contains(r"^\+393", regex=True, na=False).sum())
+    da_arricchire = totale - chiamabili
 
-    # Ordina i lead per Tier A poi Tier B e score decrescente
+    pivas = df.get("Partita_IVA", pd.Series([""] * totale)).fillna("").astype(str)
+    piva_valide = int(pivas.str.startswith("IT").sum())
+    perc_piva = round((piva_valide / safe_tot * 100), 1)
+
+    stati = df.get("Stato_CNA", pd.Series([""] * totale)).fillna("").astype(str)
+    associati = int(stati.str.contains("ASSOCIATO RILEVATO", na=False).sum())
+    target_cna = int(stati.str.contains("NON ASSOCIATO", na=False).sum())
+
+    tiers = df.get("Lead_Tier", pd.Series([""] * totale)).fillna("").astype(str)
+    tier_a = int(tiers.str.contains("Tier A", na=False).sum())
+    tier_b = int(tiers.str.contains("Tier B", na=False).sum())
+    tier_c = int(tiers.str.contains("Tier C", na=False).sum())
+
+    area_series = df["Area_Geografica"] if "Area_Geografica" in df.columns else df["City"]
+    area_counts = area_series.replace("", "Provincia").value_counts().to_dict()
+    top_comuni = df["City"].replace("", "Catania").value_counts().head(10).to_dict()
+
+    # Conta solo marchi realmente rilevati (Zero Hallucination)
+    marchi_col = df.get("Marchi_Rilevati", pd.Series([""] * totale)).fillna("").astype(str)
+    marchi_stats = {}
+    for brand in ("Vaillant", "Baxi", "Buderus", "Bosch", "Ariston", "Immergas", "Daikin", "Mitsubishi", "Ferroli", "Fujitsu"):
+        cnt = int(marchi_col.str.contains(brand, case=False, na=False).sum())
+        if cnt > 0:
+            marchi_stats[brand] = cnt
+    if not marchi_stats:
+        marchi_stats = {"Marchi verificati da crawl/nome": int((df.get("Marchi_Verificati", pd.Series(["NO"] * totale)) == "SI").sum())}
+
     df_sorted = df.copy()
-    if "ICP_Score" in df_sorted.columns:
-        df_sorted["ICP_Score_Num"] = pd.to_numeric(df_sorted["ICP_Score"], errors="coerce").fillna(0)
-        df_sorted.sort_values(by=["ICP_Score_Num"], ascending=False, inplace=True)
-    
-    # TUTTE le lead per il CEO
+    df_sorted["_call"] = (phones.str.strip() != "").astype(int)
+    df_sorted["ICP_Score_Num"] = pd.to_numeric(df_sorted.get("ICP_Score", 0), errors="coerce").fillna(0)
+    df_sorted = df_sorted.sort_values(
+        by=["_call", "ICP_Score_Num", "Company Name"],
+        ascending=[False, False, True],
+    )
     all_leads = df_sorted.to_dict(orient="records")
+
+    area_rows = "".join(
+        f"""
+        <tr>
+            <td><strong>{_esc(area)}</strong></td>
+            <td style="text-align: right; font-weight: 700;">{count}</td>
+            <td style="text-align: right; color: #718096;">{round(count / safe_tot * 100, 1)}%</td>
+        </tr>
+        """
+        for area, count in sorted(area_counts.items(), key=lambda x: x[1], reverse=True)
+    )
+
+    marchi_rows = "".join(
+        f"""
+        <tr>
+            <td><strong>{_esc(m_name)}</strong> (rilevato su nome/sito reale)</td>
+            <td style="text-align: right; font-weight: 700;">{m_cnt}</td>
+            <td style="text-align: right; color: #2B6CB0;">{round(m_cnt / safe_tot * 100, 1)}%</td>
+        </tr>
+        """
+        for m_name, m_cnt in sorted(marchi_stats.items(), key=lambda x: x[1], reverse=True)[:6]
+    )
+
+    lead_rows_html = []
+    for idx, lead in enumerate(all_leads, 1):
+        tier_str = str(lead.get("Lead_Tier", "Tier C"))
+        if "Tier A" in tier_str:
+            tier_cls = "badge-vip"
+            tier_short = "Tier A VIP 🔥"
+        elif "Tier B" in tier_str:
+            tier_cls = "badge-warm"
+            tier_short = "Tier B 🟡"
+        else:
+            tier_cls = "badge-cold"
+            tier_short = "Tier C ❄️"
+
+        stato_str = str(lead.get("Stato_CNA", ""))
+        if "ASSOCIATO RILEVATO" in stato_str:
+            cna_cls = "badge-socio"
+            cna_label = "SOCIO CNA"
+        elif "NON ASSOCIATO" in stato_str:
+            cna_cls = "badge-target"
+            cna_label = "TARGET CNA 50%"
+        else:
+            cna_cls = "badge-warm"
+            cna_label = "DA VERIFICARE"
+
+        phone_disp = lead.get("Phone") or "Da arricchire"
+        marchi_disp = lead.get("Marchi_Rilevati") or "Non rilevato"
+        lead_rows_html.append(
+            f"""
+            <tr>
+                <td style="text-align: center; color: #718096; font-size: 6.5pt;">{idx}</td>
+                <td>
+                    <strong style="color: #1A202C; font-size: 7.4pt;">{_esc(lead.get('Company Name', ''))}</strong><br>
+                    <span style="color: #4A5568; font-size: 6.3pt;">🔧 {_esc(marchi_disp)}</span>
+                </td>
+                <td>
+                    <strong>{_esc(lead.get('City', ''))}</strong><br>
+                    <span style="color: #718096; font-size: 6.3pt;">{_esc(lead.get('Area_Geografica', 'Provincia'))}</span>
+                </td>
+                <td>
+                    <strong style="color: #005A9E;">{_esc(phone_disp)}</strong><br>
+                    <code style="color: #4A5568; font-size: 6.3pt;">{_esc(lead.get('Partita_IVA') or 'N/D')}</code>
+                </td>
+                <td>
+                    <span class="{tier_cls}">{tier_short}</span>
+                    <span style="font-weight: 700; color: #2B6CB0; font-size: 6.5pt;">({ _esc(lead.get('ICP_Score', '0')) } pt)</span><br>
+                    <span class="{cna_cls}">{cna_label}</span>
+                </td>
+                <td>
+                    <div class="icebreaker-mini">
+                        "{_esc(lead.get('Icebreaker_1to1', ''))}"
+                    </div>
+                </td>
+            </tr>
+            """
+        )
 
     html = f"""<!DOCTYPE html>
 <html lang="it">
@@ -88,9 +172,9 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
                 color: #A0AEC0;
             }}
             @bottom-left {{
-                content: "TecnicoLIVE 2.0 • Sinergia Rete d'Imprese • Piazza dei Martiri 8, Catania";
+                content: "{_esc(SENDER_IDENTITY)}";
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                font-size: 7pt;
+                font-size: 6.5pt;
                 color: #718096;
             }}
             @bottom-right {{
@@ -110,22 +194,20 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             line-height: 1.35;
             font-size: 8pt;
         }}
-        
         .cover-page {{
             page-break-after: always;
-            padding-top: 20px;
+            padding-top: 12px;
         }}
-        
         .header-box {{
             border-bottom: 3px solid #005A9E;
-            padding-bottom: 12px;
-            margin-bottom: 16px;
+            padding-bottom: 10px;
+            margin-bottom: 14px;
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
         }}
         .brand-title {{
-            font-size: 20pt;
+            font-size: 19pt;
             font-weight: 900;
             color: #005A9E;
             letter-spacing: -0.5px;
@@ -133,7 +215,7 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             text-transform: uppercase;
         }}
         .brand-subtitle {{
-            font-size: 10.5pt;
+            font-size: 10pt;
             font-weight: 700;
             color: #2D3748;
             margin-top: 4px;
@@ -145,63 +227,57 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             padding: 4px 10px;
             border-radius: 4px;
             font-weight: 800;
-            font-size: 8pt;
+            font-size: 7.8pt;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }}
-        
         .kpi-grid {{
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 8px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
         }}
         .kpi-card {{
             background: #F7FAFC;
             border: 1.5px solid #E2E8F0;
             border-radius: 6px;
-            padding: 10px 6px;
+            padding: 9px 6px;
             text-align: center;
         }}
         .kpi-num {{
-            font-size: 17pt;
+            font-size: 16pt;
             font-weight: 900;
             color: #1A202C;
             line-height: 1;
         }}
         .kpi-label {{
-            font-size: 7pt;
+            font-size: 6.8pt;
             font-weight: 700;
             color: #4A5568;
             text-transform: uppercase;
             margin-top: 4px;
         }}
         .kpi-sub {{
-            font-size: 6.5pt;
+            font-size: 6.4pt;
             color: #2B6CB0;
             font-weight: 600;
             margin-top: 2px;
         }}
-        
         .section-title {{
-            font-size: 10.5pt;
+            font-size: 10pt;
             font-weight: 800;
             color: #005A9E;
             border-bottom: 1.5px solid #CBD5E0;
             padding-bottom: 3px;
-            margin-top: 14px;
+            margin-top: 12px;
             margin-bottom: 8px;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
         }}
-        
         .cols-2 {{
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }}
-        
         .table-summary {{
             width: 100%;
             border-collapse: collapse;
@@ -219,49 +295,38 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             padding: 4px 6px;
             border-bottom: 1px solid #E2E8F0;
         }}
-        
         .strategic-box {{
             background: #F0FFF4;
             border: 1.5px solid #9AE6B4;
             border-radius: 6px;
-            padding: 10px 14px;
-            font-size: 8pt;
-            margin-bottom: 14px;
+            padding: 9px 12px;
+            font-size: 7.8pt;
+            margin-bottom: 12px;
             color: #22543D;
         }}
-        
-        /* TABELLA INTEGRALE DEI 696 LEAD */
         .table-leads {{
             width: 100%;
             border-collapse: collapse;
-            font-size: 7pt;
+            font-size: 6.9pt;
             margin-top: 8px;
         }}
-        thead {{
-            display: table-header-group;
-        }}
-        tr {{
-            page-break-inside: avoid;
-        }}
+        thead {{ display: table-header-group; }}
+        tr {{ page-break-inside: avoid; }}
         .table-leads th {{
             background-color: #005A9E;
             color: #FFFFFF;
             font-weight: 800;
             text-align: left;
             padding: 5px 6px;
-            font-size: 6.8pt;
+            font-size: 6.7pt;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
         }}
         .table-leads td {{
-            padding: 4.5px 6px;
+            padding: 4px 5px;
             border-bottom: 1px solid #E2E8F0;
             vertical-align: top;
         }}
-        .table-leads tr:nth-child(even) {{
-            background-color: #F8FAFC;
-        }}
-        
+        .table-leads tr:nth-child(even) {{ background-color: #F8FAFC; }}
         .badge-vip {{
             background-color: #FEFCBF;
             color: #744210;
@@ -269,7 +334,7 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             padding: 1px 4px;
             border-radius: 3px;
             font-weight: 800;
-            font-size: 6.5pt;
+            font-size: 6.3pt;
             display: inline-block;
         }}
         .badge-warm {{
@@ -278,7 +343,17 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             padding: 1px 4px;
             border-radius: 3px;
             font-weight: 600;
-            font-size: 6.5pt;
+            font-size: 6.3pt;
+            display: inline-block;
+        }}
+        .badge-cold {{
+            background-color: #F7FAFC;
+            color: #718096;
+            border: 1px solid #CBD5E0;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 6.3pt;
             display: inline-block;
         }}
         .badge-target {{
@@ -288,7 +363,7 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             padding: 1px 4px;
             border-radius: 3px;
             font-weight: 700;
-            font-size: 6.5pt;
+            font-size: 6.2pt;
             display: inline-block;
         }}
         .badge-socio {{
@@ -298,15 +373,14 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             padding: 1px 4px;
             border-radius: 3px;
             font-weight: 700;
-            font-size: 6.5pt;
+            font-size: 6.2pt;
             display: inline-block;
         }}
-        
         .icebreaker-mini {{
             background: #F0FFF4;
             border-left: 2px solid #38A169;
             padding: 3px 5px;
-            font-size: 6.5pt;
+            font-size: 6.4pt;
             color: #22543D;
             line-height: 1.25;
             font-style: italic;
@@ -316,46 +390,42 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
 </head>
 <body>
 
-    <!-- ========================================== -->
-    <!-- PAGINA 1: EXECUTIVE BRIEFING PER IL CEO    -->
-    <!-- ========================================== -->
     <div class="cover-page">
         <div class="header-box">
             <div>
                 <div class="brand-title">TecnicoLIVE &bull; Executive Report</div>
                 <div class="brand-subtitle">Censimento & Qualificazione Integrale Impiantistica Termoidraulica & Clima</div>
-                <div style="font-size: 8pt; color: #4A5568; margin-top: 3px;">
-                    Ambito Territoriale: <strong>Città Metropolitana di Catania (58 Comuni)</strong> &bull; Partnership Istituzionale: <strong>CNA Catania</strong>
+                <div style="font-size: 7.8pt; color: #4A5568; margin-top: 3px;">
+                    Ambito: <strong>Città Metropolitana di Catania (58 Comuni)</strong> &bull; Convenzione <strong>CNA Catania (50% 1° Anno)</strong>
                 </div>
             </div>
             <div style="text-align: right;">
-                <div class="header-badge">Documento Riservato CEO</div>
-                <div style="font-size: 7.5pt; color: #718096; margin-top: 4px;">Data: <strong>Novembre 2026</strong></div>
-                <div style="font-size: 7.5pt; color: #718096;">Sede: <strong>Piazza dei Martiri 8, Catania</strong></div>
+                <div class="header-badge">Catalogo Integrale CEO</div>
+                <div style="font-size: 7.2pt; color: #718096; margin-top: 4px;">P.IVA IT06200390877</div>
+                <div style="font-size: 7.2pt; color: #718096;">Piazza dei Martiri 8, Catania</div>
             </div>
         </div>
 
-        <!-- KPI CRUSCOTTO DIREZIONALE -->
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-num">{totale}</div>
-                <div class="kpi-label">Imprese Censite</div>
-                <div class="kpi-sub">100% Catania & Prov.</div>
+                <div class="kpi-label">Imprese Pulite</div>
+                <div class="kpi-sub">{chiamabili} chiamabili ({cellulari} mob)</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-num" style="color: #2B6CB0;">{target_cna}</div>
                 <div class="kpi-label">Target Non Associati</div>
-                <div class="kpi-sub">Leva Quota 1° Anno CNA</div>
+                <div class="kpi-sub">Leva CNA 50% 1° Anno</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-num" style="color: #DD6B20;">{tier_a}</div>
                 <div class="kpi-label">Tier A 🔥 VIP</div>
-                <div class="kpi-sub">Score ICP &ge; 80 / 100</div>
+                <div class="kpi-sub">Score &ge; 80 + E.164</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-num" style="color: #4A5568;">{tier_b}</div>
                 <div class="kpi-label">Tier B 🟡 Warm</div>
-                <div class="kpi-sub">Audience Meta Ads RSK</div>
+                <div class="kpi-sub">{tier_c} Tier C ({da_arricchire} no tel)</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-num" style="color: #2F855A;">{piva_valide}</div>
@@ -364,18 +434,16 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
             </div>
         </div>
 
-        <!-- NOTA STRATEGICA PER IL CEO -->
         <div class="strategic-box">
-            <strong>🎯 Sintesi Esecutiva per la Direzione Generale:</strong>
+            <strong>🎯 Sintesi Esecutiva & Igiene Dati (Zero Hallucination):</strong>
             <p style="margin: 4px 0 0 0;">
-                Il presente documento raccoglie il censimento esaustivo di tutte le <strong>{totale} aziende di termoidraulica, assistenza caldaie e climatizzazione</strong> operanti nell'area etnea e provinciale. 
-                Ben <strong>{target_cna} ditte ({round(target_cna/totale*100, 1)}%) risultano non ancora associate a CNA Catania</strong>: costituiscono l'obiettivo commerciale primario per l'offerta combinata:
-                <em>Attivazione Assistente Vocale AI TecnicoLIVE + Quota d'iscrizione del 1° anno a CNA Catania scontata</em>. 
-                Le <strong>{tier_a} aziende di Tier A (VIP 🔥)</strong> dispongono di requisiti tecnici di prim'ordine (P.IVA validata con Luhn, telefoni verificati e marchi compatibili come Buderus, Vaillant, Baxi e Bosch) e sono pronte per il contatto outbound immediato con gli icebreaker generati su misura.
+                Il catalogo raccoglie tutte le <strong>{totale} imprese pulite</strong> del verticale Termoidraulica & Clima (escluse GDO e record esteri),
+                suddivise in <strong>{chiamabili} contatti immediatamente chiamabili (formato E.164 +39)</strong> e <strong>{da_arricchire} schede isolate in <code>da_arricchire_contatti.csv</code></strong>.
+                Per i non associati ({target_cna} ditte) l'offerta commerciale abbina i piani TecnicoLIVE (Base 169€, Pro 269€, Business 369€)
+                all'<strong>associazione a CNA Catania al 50% per tutto il 1° anno</strong>. I marchi mostrati derivano esclusivamente da evidenze reali (nome/sito aziendale).
             </p>
         </div>
 
-        <!-- PROIEZIONI E DISTRIBUZIONE TERRITORIALE -->
         <div class="cols-2">
             <div>
                 <div class="section-title">1. Ripartizione Macro-Aree Provinciali</div>
@@ -388,113 +456,68 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
                         </tr>
                     </thead>
                     <tbody>
-                        {"".join([f'''
-                        <tr>
-                            <td><strong>{area}</strong></td>
-                            <td style="text-align: right; font-weight: 700;">{count}</td>
-                            <td style="text-align: right; color: #718096;">{round(count/totale*100, 1)}%</td>
-                        </tr>
-                        ''' for area, count in sorted(area_counts.items(), key=lambda x: x[1], reverse=True)])}
+                        {area_rows}
                     </tbody>
                 </table>
             </div>
 
             <div>
-                <div class="section-title">2. Copertura Marchi Assistiti dall'AI</div>
+                <div class="section-title">2. Marchi Reali Verificati (Zero Inventati)</div>
                 <table class="table-summary">
                     <thead>
                         <tr>
-                            <th>Manuale Tecnico Integrato nell'AI</th>
-                            <th style="text-align: right;">Ditte Specializzate</th>
-                            <th style="text-align: right;">Copertura</th>
+                            <th>Marchio Rilevato (Nome / Sito Reale)</th>
+                            <th style="text-align: right;">Ditte</th>
+                            <th style="text-align: right;">Quota</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {"".join([f'''
-                        <tr>
-                            <td><strong>{m_name}</strong> (Diagnosi Guasti H24)</td>
-                            <td style="text-align: right; font-weight: 700;">{m_cnt}</td>
-                            <td style="text-align: right; color: #2B6CB0;">{round(m_cnt/totale*100, 1)}%</td>
-                        </tr>
-                        ''' for m_name, m_cnt in sorted(marchi_stats.items(), key=lambda x: x[1], reverse=True)])}
+                        {marchi_rows}
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <!-- I 10 COMUNI A MAGGIOR DENSITA -->
         <div class="section-title">3. I 10 Comuni a Più Alta Concentrazione Impiantistica</div>
         <table class="table-summary" style="margin-bottom: 12px;">
             <thead>
                 <tr>
-                    {"".join([f'<th style="text-align: center;">{c}</th>' for c in list(top_comuni.keys())])}
+                    {"".join(f'<th style="text-align: center;">{_esc(c)}</th>' for c in top_comuni.keys())}
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    {"".join([f'<td style="text-align: center; font-size: 8.5pt; font-weight: 800; color: #005A9E;">{v} ditte</td>' for v in list(top_comuni.values())])}
+                    {"".join(f'<td style="text-align: center; font-size: 8.2pt; font-weight: 800; color: #005A9E;">{v} ditte</td>' for v in top_comuni.values())}
                 </tr>
             </tbody>
         </table>
 
-        <!-- INDICAZIONI OPERATIVE PER IL TEAM -->
-        <div style="background: #FFF5F5; border: 1.5px solid #FEB2B2; border-radius: 6px; padding: 8px 12px; font-size: 7.5pt; color: #9B2C2C;">
-            <strong>📋 Regola Operativa d'Ingaggio per i Due Collaboratori Umani:</strong><br>
-            I collaboratori non devono mai effettuare chiamate generiche o a freddo: ogni contatto deve avvenire scorrendo l'elenco sottostante in ordine di <strong>Tier A 🔥 VIP</strong>, leggendo fedelmente l'<strong>Icebreaker 1-to-1</strong> calibrato sul comune di appartenenza e sui marchi trattati dalla ditta.
+        <div style="background: #FFF5F5; border: 1.5px solid #FEB2B2; border-radius: 6px; padding: 8px 12px; font-size: 7.4pt; color: #9B2C2C;">
+            <strong>📋 Regola Operativa Human-in-the-Loop (AGENTS.md):</strong><br>
+            Contattare prioritariamente le aziende chiamabili ordinate per <strong>Tier A 🔥 VIP</strong> e <strong>Tier B</strong>. Nessuna email o WhatsApp automatizzato senza revisione umana e clausola opt-out.
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- PAGINE 2+: CATALOGO INTEGRALE DELLE 696 LEAD -->
-    <!-- ========================================== -->
-    <div class="section-title" style="margin-top: 10px; margin-bottom: 6px;">
-        4. Catalogo Integrale Impianti Termoidraulici Catania & Provincia ({totale} Imprese)
+    <div class="section-title" style="margin-top: 8px; margin-bottom: 6px;">
+        4. Catalogo Integrale Termoidraulica Catania & Provincia ({totale} Imprese Pulite)
     </div>
-    <div style="font-size: 7.5pt; color: #718096; margin-bottom: 8px;">
-        Tutti i 696 lead ordinati per priorità decrescente (Tier A VIP 🔥, poi Tier B 🟡), completi di recapiti telefonici, P.IVA certificata, stato associativo CNA e gancio conversazionale 1-to-1 pronto da usare.
+    <div style="font-size: 7.3pt; color: #718096; margin-bottom: 6px;">
+        Ordinamento: prima le {chiamabili} aziende chiamabili (E.164) per ICP Score decrescente, poi le {da_arricchire} aziende da arricchire.
     </div>
 
     <table class="table-leads">
         <thead>
             <tr>
-                <th style="width: 3%; text-align: center;">#</th>
-                <th style="width: 25%;">Ragione Sociale & Marchi</th>
+                <th style="width: 4%; text-align: center;">#</th>
+                <th style="width: 24%;">Ragione Sociale & Marchi</th>
                 <th style="width: 14%;">Comune & Area</th>
-                <th style="width: 15%;">Telefono & P.IVA</th>
+                <th style="width: 15%;">Telefono E.164 & P.IVA</th>
                 <th style="width: 13%;">Stato CNA & Tier</th>
-                <th style="width: 30%;">Icebreaker 1-to-1 (Stile Clay.com)</th>
+                <th style="width: 30%;">Icebreaker 1-to-1 Verificato</th>
             </tr>
         </thead>
         <tbody>
-            {"".join([f'''
-            <tr>
-                <td style="text-align: center; color: #718096; font-size: 6.5pt;">{idx}</td>
-                <td>
-                    <strong style="color: #1A202C; font-size: 7.5pt;">{lead.get('Company Name', '')}</strong><br>
-                    <span style="color: #4A5568; font-size: 6.5pt;">🔧 {lead.get('Marchi_Rilevati', 'Caldaie & Clima')}</span>
-                </td>
-                <td>
-                    <strong>{lead.get('City', '')}</strong><br>
-                    <span style="color: #718096; font-size: 6.5pt;">{lead.get('Area_Geografica', 'Provincia')}</span>
-                </td>
-                <td>
-                    <strong style="color: #005A9E;">{lead.get('Phone', '')}</strong><br>
-                    <code style="color: #4A5568; font-size: 6.5pt;">{lead.get('Partita_IVA', 'N/D')}</code>
-                </td>
-                <td>
-                    <span class="{'badge-vip' if 'Tier A' in str(lead.get('Lead_Tier')) else ('badge-warm' if 'Tier B' in str(lead.get('Lead_Tier')) else 'badge-warm')}">{lead.get('Lead_Tier', 'Tier B')}</span>
-                    <span style="font-weight: 700; color: #2B6CB0; font-size: 6.5pt;">({lead.get('ICP_Score', '70')} pt)</span><br>
-                    <span class="{'badge-socio' if 'ASSOCIATO RILEVATO' in str(lead.get('Stato_CNA')) else ('badge-target' if 'NON ASSOCIATO' in str(lead.get('Stato_CNA')) else 'badge-warm')}">
-                        {'SOCIO CNA' if 'ASSOCIATO RILEVATO' in str(lead.get('Stato_CNA')) else ('TARGET NON ASSOCIATO' if 'NON ASSOCIATO' in str(lead.get('Stato_CNA')) else 'DA VERIFICARE')}
-                    </span>
-                </td>
-                <td>
-                    <div class="icebreaker-mini">
-                        "{lead.get('Icebreaker_1to1', 'Buongiorno, vi contatto da TecnicoLIVE per la convenzione CNA Catania...')}"
-                    </div>
-                </td>
-            </tr>
-            ''' for idx, lead in enumerate(all_leads, 1)])}
+            {"".join(lead_rows_html)}
         </tbody>
     </table>
 
@@ -504,21 +527,18 @@ def build_termoidraulica_html(df: pd.DataFrame) -> str:
 
 
 async def generate_termoidraulica_pdf() -> Path:
-    csv_file = DATA_DIR / "termoidraulica_catania_provincia.csv"
-    if not csv_file.exists():
-        csv_file = DATA_DIR / "campagna_outbound_tecnicolive.csv"
-
-    print(f"Lettura dataset completo da: {csv_file}")
+    csv_file = OUTPUT_TERMOIDRAULICA_CSV if OUTPUT_TERMOIDRAULICA_CSV.exists() else OUTPUT_OUTBOUND_CSV
+    print(f"Lettura dataset Termoidraulica da: {csv_file}")
     df = pd.read_csv(csv_file, dtype=str).fillna("")
 
-    print(f"Compilazione report per TUTTE le {len(df)} aziende di Termoidraulica...")
+    print(f"Compilazione Report Integrale per {len(df)} aziende Termoidraulica...")
     html_content = build_termoidraulica_html(df)
 
     html_file = DATA_DIR / "temp_termoidraulica_report_full.html"
     with open(html_file, "w", encoding="utf-8") as f:
         f.write(html_content)
 
-    print("Compilazione PDF ad alta fedeltà con Playwright Chromium (può richiedere qualche secondo per tutte le pagine)...")
+    print("Compilazione PDF Integrale Termoidraulica con Playwright Chromium...")
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()
@@ -527,20 +547,14 @@ async def generate_termoidraulica_pdf() -> Path:
             path=str(PDF_OUTPUT_PATH),
             format="A4",
             print_background=True,
-            margin={"top": "8mm", "bottom": "8mm", "left": "8mm", "right": "8mm"}
+            margin={"top": "8mm", "bottom": "8mm", "left": "8mm", "right": "8mm"},
         )
         await browser.close()
 
     if html_file.exists():
         html_file.unlink()
 
-    # Copia anche nella cartella degli artefatti per accesso e download diretto
-    if BRAIN_DIR.exists():
-        dest_brain = BRAIN_DIR / "Report_Termoidraulica_Catania_Provincia_CNA.pdf"
-        shutil.copy2(PDF_OUTPUT_PATH, dest_brain)
-        print(f"Copia del PDF sincronizzata negli artefatti: {dest_brain}")
-
-    print(f"Report PDF Direzionale generato con successo: {PDF_OUTPUT_PATH}")
+    print(f"Report PDF Integrale generato con successo: {PDF_OUTPUT_PATH}")
     return PDF_OUTPUT_PATH
 
 

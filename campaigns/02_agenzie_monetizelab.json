@@ -1,0 +1,33 @@
+{
+  "campaign_id": "agenzie_creator_monetizelab_2026",
+  "name": "Marketing Agency, Web Agency & Content Creator — Italia",
+  "target_vertical": "Agenzie Marketing, Digital Agency, SEO, Social Media & Content Creator",
+  "ateco_codes": ["73.11.01", "73.11.02", "74.10.21", "59.11.00"],
+  "nace_codes": ["M73.11", "M73.12", "M74.10", "J59.11"],
+  "search_queries": [
+    "agenzia marketing digitale Catania",
+    "web agency Palermo",
+    "agenzia comunicazione Milano",
+    "social media agency Roma"
+  ],
+  "geo": {
+    "country_code": "IT",
+    "region": "",
+    "province_code": "",
+    "municipalities": ["Catania", "Palermo", "Milano", "Roma"],
+    "istat_codes": [],
+    "strict_country_lock": true
+  },
+  "default_upsell_product": "monetizelab",
+  "offer_summary": "MonetizeLab (monetizelab.online): acquisizione clienti locali ad alta copertura senza i limiti di LinkedIn + pacchetti ricorrenti per agenzie e content creator.",
+  "enrichment": {
+    "enable_l1_tech_audit": true,
+    "enable_l1_mx_check": true,
+    "enable_l1_vies": true,
+    "enable_l2_gemini_ai": true,
+    "enable_l3_openapi_registry": false,
+    "l3_endpoint": "IT-start",
+    "max_l3_budget_eur": 5.0
+  },
+  "max_results_per_query": 20
+}

@@ -171,8 +171,8 @@ flowchart TD
 - **Obiettivo**: Chiudere trattative aperte con budget minimo (poche decine di euro su pubblico caldissimo).
 
 ### Scenario 2: Upsell & Cross-Sell su Clienti Esistenti
-- **Targeting**: Includi Smart List `Acquirenti Piano Starter`.
-- **Escludi**: Smart List `Acquirenti Piano Pro / Enterprise`.
+- **Targeting**: Includi Smart List `Acquirenti Piano Base`.
+- **Escludi**: Smart List `Acquirenti Piano Pro / Business / Enterprise`.
 - **Creatività**: Annuncio su manuali tecnici avanzati (Buderus, Bosch, Vaillant) e gestione multi-tecnico.
 - **Obiettivo**: Aumentare il Customer Lifetime Value (LTV) senza costi di nuova acquisizione.
 

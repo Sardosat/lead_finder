@@ -18,17 +18,17 @@
   Il cliente a cui si è bloccata la caldaia non aspetta che tu finisca l'intervento per richiamarlo alle 19:30.
   Apre Google, digita il secondo numero nella sua zona e affida il lavoro al tuo concorrente.
 
-  Un impiantista perde in media tra 8 e 25 chiamate a settimana. Con una tariffa media di 120-180€ per intervento, significa lasciare per strada fino a 3.000€ di fatturato ogni singolo mese.
+  *(Stima teorica)* Un impiantista può perdere diverse chiamate ogni settimana mentre lavora sul campo, lasciando potenzialmente migliaia di euro al mese ai concorrenti.
 
   TecnicoLIVE è l'assistente vocale con intelligenza artificiale addestrato sui guasti termoidraulici:
-  ✅ Risponde in 3 secondi con voce naturale italiana
+  ✅ Risponde in 3 secondi con chiamate simultanee illimitate
   ✅ Consulta i codici guasto (Vaillant, Buderus, Baxi, Bosch)
   ✅ Raccoglie indirizzo e urgenza
   ✅ Ti manda la scheda intervento compilata su WhatsApp
 
-  Se operi nella provincia di Catania, grazie alla convenzione con CNA Catania hai 7 giorni di prova gratuita e canoni agevolati di categoria.
+  Se operi nella provincia di Catania, grazie alla convenzione con CNA Catania per i nuovi iscritti la quota associativa CNA è al **50% per tutto il primo anno**.
 
-  👉 Mettilo alla prova adesso chiamando il nostro numero test o scopri di più su www.tecnicolive.it
+  👉 Mettilo alla prova adesso chiamando il numero test +39 095 342 0411 o scopri di più su www.tecnicolive.it
   ```
 - **Hashtag**: `#Termoidraulica #Caldaie #Catania #Impiantisti #CNACatania #TecnicoLIVE #InnovazioneArtigiana`
 
@@ -66,5 +66,5 @@
 - **Canali**: Facebook & LinkedIn
 - **Tema**: *"Se non sei ancora associato a CNA Catania, ecco la convenzione che si ripaga da sola."*
 - **Formato Grafico**: 1:1 Quadrato con badge congiunto TecnicoLIVE • CNA Catania
-- **Focus**: Scontistica canone 15% + Quota di tesseramento a CNA per il 1° anno scontata.
-- **Call to Action**: *"Scrivici in privato per attivare la tua linea di prova per 7 giorni senza impegno."*
+- **Focus**: Associazione a CNA Catania al 50% per il 1° anno + attivazione TecnicoLIVE (Base 169€ / Pro 269€ / Business 369€, -20% su annuale).
+- **Call to Action**: *"Scrivici in privato o chiama il +39 095 342 0411 per testare la demo vocale dal vivo."*

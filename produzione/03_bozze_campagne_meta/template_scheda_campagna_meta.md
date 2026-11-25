@@ -40,15 +40,15 @@ Con TecnicoLIVE attivi l'assistente vocale intelligente con IA addestrato sui gu
 Risponde H24 in 3 secondi, fa la pre-diagnosi del guasto e ti prenota l'intervento su WhatsApp.
 
 In convenzione ufficiale con CNA Catania:
-✅ Sconto dedicato del 15% sul canone
-✅ Quota d'iscrizione a CNA del primo anno scontata per le nuove ditte
-✅ Prova gratuita di 7 giorni senza carta di credito
+✅ Iscrizione a CNA Catania al 50% per tutto il primo anno per nuove ditte
+✅ Chiamate simultanee illimitate (piani da 169€/mese, -20% annuale)
+✅ Test vocale dal vivo disponibile subito
 
 👉 Clicca su "Scopri di più" e ascolta la demo vocale adesso!
 ```
 
 ### Descrizione (Massimo 30 Caratteri)
-- `Prova gratuita 7 giorni CNA` (28 caratteri)
+- `CNA Catania al 50% 1° anno` (26 caratteri)
 
 ### Call to Action (Pulsante)
 - `Scopri di più` oppure `Invia un messaggio su WhatsApp`

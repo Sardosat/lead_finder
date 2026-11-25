@@ -27,4 +27,4 @@ Il nostro tono di voce è:
    Una chiamata persa non è una notifica sul telefono: è un cliente che digita il secondo numero su Google Maps e regala 180€ di intervento al concorrente.
 
 3. **Rispetta la specificità territoriale.**  
-   Facciamo leva sulla Città Metropolitana di Catania, sulle emergenze climatiche dell'Etna (40°C d'estate con condizionatori in tilt, freddo invernale con caldaie bloccate) e sulla convenzione CNA Catania con quota primo anno agevolata.
+   Facciamo leva sulla Città Metropolitana di Catania, sulle emergenze climatiche dell'Etna e sulla convenzione CNA Catania con **associazione al 50% per tutto il primo anno**.

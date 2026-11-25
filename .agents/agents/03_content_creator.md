@@ -41,7 +41,7 @@ Dalla repository di competenze di marketing e dall'architettura Clay.com, questo
    *Es.*: *"Sei sotto una caldaia con le mani sporche di grasso. Lo smartphone nella tasca comincia a squillare. Cosa fai?"*
 2. **Sviluppo (2-3 brevi paragrafi)**: Spiegazione del costo invisibile: la persona non aspetta, chiude la telefonata e chiama la ditta concorrente su Google.
 3. **Soluzione TecnicoLIVE (1 paragrafo)**: Spiegazione di come risponde l'assistente vocale in 3 secondi, citando i manuali (Buderus, Vaillant, Baxi, Bosch) e aprendo la scheda su WhatsApp.
-4. **Chiusura / CTA**: Invito a provare il numero demo o ad accedere alla convenzione CNA Catania con quota primo anno scontata.
+4. **Chiusura / CTA**: Invito a provare il numero demo o ad accedere alla convenzione CNA Catania con **associazione CNA al 50% per il primo anno**.
 
 ### C. Script Video Brevi (30 Secondi per Reels)
 - **Secondi 0-3 (Hook visivo + vocale)**: Titolare con tuta da lavoro e torcia: *"Ecco perché ogni mese perdi almeno 1.500€ senza nemmeno accorgertene."*

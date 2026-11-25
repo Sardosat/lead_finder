@@ -1,82 +1,110 @@
-# Lead Finder TecnicoLIVE & CNA Catania
+# Lead Intelligence Engine IT/EU • TecnicoLIVE • RSK System • MonetizeLab
 
-Sistema avanzato di **Lead Generation, Estrazione Partita IVA e Verifica Affiliazione a CNA Catania** progettato per le 4 nicchie impiantistiche di Catania e provincia:
-1. **HVAC, Caldaisti, Climatizzazione e Riscaldamento**
-2. **Termoidraulica e Idraulici**
-3. **Impianti Elettrici ed Elettricisti**
-4. **Impiantistica Generale e Grandi Appalti**
+Piattaforma B2B modulare di **Lead Generation, Arricchimento a 3 Livelli stile Clay.com (adattato a Italia & Europa), Conformità B2B GDPR (LIA + Blocco PEC + RPO) e Routing Multi-Prodotto** progettata per le PMI italiane ed europee.
 
 ---
 
-## 🎯 Obiettivo Strategico
+## 🎯 Architettura Ecosistema & Monetizzazione
 
-- **Se il lead è già socio CNA Catania**: proporre l'assistente vocale IA **TecnicoLIVE** con la convenzione e lo sconto esclusivo riservato ai soci.
-- **Se il lead NON è socio CNA Catania**: sbloccare la doppia vendita: *"Ti associamo a CNA Catania per farti ottenere la convenzione TecnicoLIVE + tutti i benefici sindacali e legali dell'associazione"*.
+1. **Lead Intelligence Engine (`engine/`, `api/`)** — Prodotto di acquisizione B2B locale ad alta copertura (Google Places/Serper + ISTAT Geo-Lock + VIES UE + Tech Audit + Gemini 2.5 Flash + Openapi.com).
+2. **Router Automatico sui 3 Prodotti dell'Ecosistema**:
+   - **`monetizelab.online`**: per **Marketing Agency, Web Agency e Content Creator** (ATECO `73.11`, `73.12`, `74.10`, `59.11`).
+   - **`tecnicolive.it`**: per **Termoidraulici, Elettricisti, Caldaisti e Installatori Impianti** (ATECO `43.21`, `43.22`, `43.29`) con convenzione **CNA Catania al 50% per il 1° anno** e listino ufficiale (Base 169€ + 399€ setup, Pro 269€ + 599€ setup, Business 369€ + 699€ setup, `-20%` annuale).
+   - **`rsksystem.com`**: per tutte le altre **PMI italiane ed europee B2B/B2C** (CRM sovrano, Smart Lists, WhatsApp/Email automation).
+
+---
+
+## 🛠️ Setup Ambiente & Variabili `.env` (Python >= 3.10)
+
+### 1. Virtualenv
+```bash
+# macOS / Linux
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium
+
+# Windows PowerShell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+playwright install chromium
+```
+
+### 2. Configurazione Chiavi API (`.env`)
+Copia `.env.example` in `.env` (file ignorato da Git) e inserisci le chiavi necessarie:
+- `SERPER_API_KEY` o `GOOGLE_PLACES_API_KEY` (Seed Discovery locale)
+- `GEMINI_API_KEY` (Livello 2 AI Context `gemini-2.5-flash` con Structured Outputs)
+- `OPENAPI_API_KEY` / `OPENAPI_USERNAME` / `OPENAPI_TOKEN` (Livello 3 Dati Camerali `company.openapi.com`)
+- `SUPABASE_URL`, `SUPABASE_KEY`, `RSK_WEBHOOK_URL` (Storage multi-tenant & Webhook)
 
 ---
 
 ## 🚀 Comandi Principali
 
-Attiva l'ambiente virtuale:
-```powershell
-.\.venv\Scripts\Activate.ps1
+### Motore Multi-Prodotto IT/EU (`engine/` + `api/`)
+```bash
+# Demo end-to-end (Geo-Lock vs Clay, Product Router, LIA GDPR, PEC Block, Webhook dry-run)
+python main.py --engine-demo
+
+# Verifica live gratuita P.IVA su VIES Commissione Europea
+python main.py --vies IT06200390877
+
+# Livello 1 Tech Audit + verifica DNS MX su un dominio aziendale
+python main.py --tech-audit https://www.tecnicolive.it
+
+# Livello 3 Dati Camerali italiani via Openapi.com (con budget cap e cache)
+python main.py --openapi-check IT06200390877
+
+# Avvio API REST FastAPI (per frontend Next.js / SaaS)
+uvicorn api.server:app --reload
 ```
 
-### 1. Ricerca Attiva di NUOVI Lead (`--discover`)
-Trova nuove imprese a Catania e provincia nei 4 settori, estrae la Partita IVA, deduplica rispetto alle lead già presenti e controlla l'affiliazione CNA:
-
-```powershell
-# Cerca fino a 10 nuovi lead per ciascun settore (default su Catania)
-python main.py --discover
-
-# Cerca su un comune specifico della provincia (es. Acireale, Misterbianco, Giarre, Mascalucia)
-python main.py --discover --city acireale --max-per-sector 10
-
-# Scandaglia a tappeto TUTTI i principali comuni della Città Metropolitana di Catania
-python main.py --discover --all-cities --max-per-sector 10
+### Dashboard Interattiva Streamlit (4 Tab)
+```bash
+streamlit run app.py
 ```
 
-### 2. Generazione del Report Strategico in PDF (`--pdf`)
-Genera il documento PDF formattato con tutte le metriche, tabelle e grafici pronti per la stampa o l'invio direzionale:
+### Bonifica Dataset, Report PDF & Test
+```bash
+# Bonifica, deduplica, normalizzazione E.164, crawl live siti reali e sync CSV/Excel
+python main.py --clean
+python main.py --clean --crawl
 
-```powershell
-python main.py --pdf
-```
+# Generazione report PDF (strategico, termoidraulica, top100, all)
+python main.py --pdf all
 
-### 3. Verifica e Arricchimento dei Lead Esistenti
-Elabora i file CSV originali presenti in `CSV_Leads/`:
-
-```powershell
-# Elaborazione completa di tutte le lead
-python main.py
-
-# Test pilota rapido (es. prime 5 lead)
-python main.py --limit 5
+# Suite test completa
+pytest -v
 ```
 
 ---
 
-## 📁 Struttura e Albero delle Cartelle
+## 📁 Struttura ad Albero del Monorepo
 
-Il progetto è organizzato con una separazione netta tra file CSV di lavoro (apribili nativamente nell'editor), file Excel formattati e report PDF:
-
-```
-lead_finder/
-├── data/                         # File CSV di lavoro (apribili direttamente nell'editor)
-│   ├── tutte_le_lead.csv         # 124 lead decontaminate (solo Italia/Catania)
-│   ├── target_tesseramento_cna.csv # 64 aziende con P.IVA pronte per la vendita combinata
-│   ├── associati_rilevati.csv    # Aziende con affiliazione CNA accertata
-│   ├── nuove_lead_scoperte.csv   # Nuove aziende scoperte dal motore di ricerca
-│   ├── campagna_outbound_tecnicolive.csv # Tabella con pitch commerciale personalizzato per chiamata
-│   ├── richiesta_verifica_cna.csv # Foglio di spunta pulito per l'Ufficio Soci CNA
-│   └── riepilogo.csv             # Cruscotto statistiche
-├── exports_excel/                # TUTTI i file Excel (.xlsx) formattati con stili e colori
-│   ├── leads_cna_dashboard.xlsx  # Dashboard consolidata a fogli multipli
-│   ├── richiesta_verifica_cna.xlsx # Tabella per CNA Catania
-│   └── nuove_lead_scoperte.xlsx  # Nuove lead estratte
-├── reports/                      # Reportistica direzionale (PDF)
-│   └── Report_Strategico_CNA_Catania_TecnicoLIVE.pdf
-├── CSV_Leads/                    # File CSV sorgenti puliti (filtrati da numeri esteri/maltesi)
-├── src/                          # Codice sorgente Python modulare
-└── knowledge_base_tecnicolive/   # Documentazione e KB ufficiale TecnicoLIVE
+```text
+LEAD_FINDER/
+├── api/                               # Backend REST FastAPI per SaaS / Next.js
+│   └── server.py
+├── campaigns/                         # Playbook configurabili multi-settore (ATECO/ISTAT)
+│   ├── 01_impiantisti_tecnicolive.json
+│   ├── 02_agenzie_monetizelab.json
+│   └── 03_pmi_generiche_rsksystem.json
+├── engine/                            # Core SaaS Multi-Settore IT/EU (stile Clay locale)
+│   ├── schemas/                       # Modelli Pydantic canonici (LeadRecord, CampaignConfig, LIAAssessment)
+│   ├── routing/                       # Router ecosistema (monetizelab.online / rsksystem.com / tecnicolive.it)
+│   ├── compliance/                    # Motore GDPR LIA 3 fasi, blocco PEC, avviso RPO, suppression list
+│   ├── connectors/                    # Seed Places/Serper (Geo-Lock), VIES UE, Openapi.com IT-start/advanced
+│   ├── enrichment/                    # L1 Tech Audit + MX, L2 Gemini 2.5 Flash Structured JSON, Pipeline Runner
+│   └── exporters/                     # Export CSV canonico & Webhook RSK/GHL/n8n (Human-in-the-Loop dry-run)
+├── supabase/
+│   └── migrations/001_initial_schema.sql # Schema PostgreSQL multi-tenant con RLS & LIA trail
+├── src/                               # Pipeline verticale Catania & generatori PDF/Excel
+├── data/                              # Dataset operativi puliti, cache API e suppression_list.csv
+├── exports_excel/                     # Workbook Excel formattati
+├── reports/                           # Report direzionali PDF (3 documenti distinti)
+├── tests/                             # Suite test pytest completa
+├── app.py                             # Dashboard Streamlit 4 tab
+├── main.py                            # CLI unificata
+└── AGENTS.md                          # Vincoli permanenti (Human-in-the-Loop, Zero Hallucination, GDPR)
 ```

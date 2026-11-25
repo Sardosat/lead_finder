@@ -5,6 +5,7 @@ ENV/
 
 # Python cache and build
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *$py.class
 *.so
@@ -42,4 +43,11 @@ share/python-wheels/
 .DS_Store
 *.DS_Store
 Thumbs.db
+
+# Web frontend build & runtime persistence
+web/node_modules/
+web/.next/
+data/lead_engine_app.db
+data/exports/
+data/search_runs/
 
