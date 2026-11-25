@@ -44,6 +44,36 @@ class RegistryData(BaseModel):
     source: str = ""
 
 
+class LeadSignalItem(BaseModel):
+    """Singolo segnale verificato (Pain Point, Weak Point o Strength) per il dossier pre-chiamata."""
+
+    id: str
+    kind: Literal["pain", "weak", "strength"]
+    category: str
+    title: str
+    description: str
+    severity: Literal["high", "medium", "low"] = "medium"
+    icon: str = "target"
+    color: Literal["red", "amber", "emerald", "blue", "purple"] = "blue"
+    evidence: str = ""
+    attack_angle: str = ""
+
+
+class PreCallSalesBrief(BaseModel):
+    """Brief operativo pre-chiamata: cosa vendere al lead e perché."""
+
+    product_key: UpsellProduct = "rsksystem"
+    product_name: str = "RSK System"
+    recommended_plan: str = ""
+    company_size_label: str = "PMI / Da verificare"
+    tech_maturity_label: str = "Base"
+    why_sell: str = ""
+    primary_pain_to_attack: str = ""
+    leverage_strength: str = ""
+    suggested_opener: str = ""
+    expected_objection: str = ""
+
+
 class AIQualificationData(BaseModel):
     """Livello 2: Qualificazione AI contestuale, pain point reali e routing prodotto."""
 
@@ -52,6 +82,10 @@ class AIQualificationData(BaseModel):
     company_summary: str = ""
     detected_pain_points: List[str] = Field(default_factory=list)
     evidence_quotes: List[str] = Field(default_factory=list)
+    pain_signals: List[LeadSignalItem] = Field(default_factory=list)
+    weak_points: List[LeadSignalItem] = Field(default_factory=list)
+    strengths: List[LeadSignalItem] = Field(default_factory=list)
+    sales_brief: Optional[PreCallSalesBrief] = None
     icp_fit_score: int = 0
     lead_tier: str = "Tier C"
     recommended_product: UpsellProduct = "rsksystem"

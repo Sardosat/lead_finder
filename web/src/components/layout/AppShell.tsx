@@ -12,7 +12,7 @@ const PAGE_TITLES: Array<{ prefix: string; title: string; subtitle: string }> = 
   { prefix: "/ricerca/nuova", title: "Nuova Ricerca", subtitle: "Wizard 3-step multi-settore con Geo-Lock ISTAT" },
   { prefix: "/ricerche", title: "Le mie Ricerche", subtitle: "Archivi attivi, playbook verticali e ricerche salvate" },
   { prefix: "/leads", title: "Lead Finder", subtitle: "Tabella intelligente con routing prodotto e conformità GDPR" },
-  { prefix: "/trends", title: "Trend Finder", subtitle: "Cicli stagionali, driver normativi e trigger operativi" },
+  { prefix: "/trends", title: "Social & Market Radar", subtitle: "Trend locali, pagine FB dei lead, bandi/fiere e post AI (FB/IG/LinkedIn)" },
   { prefix: "/outreach", title: "Sales Hub & Bozze", subtitle: "Revisione Human-in-the-Loop, script e simulatore ROI" },
   { prefix: "/exports", title: "Archivio Export", subtitle: "Cronologia file CSV, Excel, Webhook JSON e Report PDF" },
   { prefix: "/strumenti", title: "Verifica Rapida & Clay Lab", subtitle: "Check VIES, Tech Audit L1, Openapi e benchmark Clay" },

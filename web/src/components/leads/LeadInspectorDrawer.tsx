@@ -2,16 +2,21 @@
 
 import React, { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   Ban,
+  Building2,
   Check,
+  CheckCircle2,
   Copy,
   ExternalLink,
+  Flame,
   Globe,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  Target,
   X,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -28,7 +33,7 @@ interface LeadInspectorDrawerProps {
   onBlacklisted: () => void;
 }
 
-type DrawerTab = "profile" | "audit" | "ai" | "gdpr";
+type DrawerTab = "profile" | "swot" | "audit" | "ai" | "gdpr";
 
 export function LeadInspectorDrawer({
   lead,
@@ -188,6 +193,7 @@ export function LeadInspectorDrawer({
           <div className="mt-3 flex gap-4 border-b border-[var(--border-hairline)] -mb-3.5 text-[12px]">
             {[
               { id: "profile", label: "Profilo & Fiscale" },
+              { id: "swot", label: "Pain, Weak & Forza" },
               { id: "audit", label: "Audit L1 & Marchi" },
               { id: "ai", label: "AI & Pitch 1-to-1" },
               { id: "gdpr", label: "GDPR LIA" },
@@ -330,6 +336,81 @@ export function LeadInspectorDrawer({
                 )}
               </div>
             </>
+          )}
+
+          {tab === "swot" && (
+            <div className="space-y-4">
+              {lead.sales_brief && (
+                <div className="rounded-lg border border-blue-200 bg-blue-50/80 p-3.5 space-y-2">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-blue-800">
+                    <Target className="h-3.5 w-3.5 text-blue-700" />
+                    <span>Cosa Vendere e Perché (Pre-Call) · {lead.sales_brief.product_name}</span>
+                  </div>
+                  <div className="text-[13px] font-semibold text-slate-900">
+                    {lead.sales_brief.recommended_plan}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-[11px] text-slate-700">
+                    <span className="inline-flex items-center gap-1 rounded bg-white/80 px-2 py-0.5 border border-blue-100">
+                      <Building2 className="h-3 w-3 text-blue-600" />
+                      {lead.sales_brief.company_size_label}
+                    </span>
+                    <span className="rounded bg-white/80 px-2 py-0.5 border border-blue-100">
+                      Tech: {lead.sales_brief.tech_maturity_label}
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-slate-700 leading-relaxed">{lead.sales_brief.why_sell}</p>
+                  {lead.sales_brief.expected_objection && (
+                    <div className="rounded border border-blue-200 bg-white/70 p-2 text-[11px] text-slate-700">
+                      <strong>Obiezione attesa:</strong> {lead.sales_brief.expected_objection}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-red-800">
+                  <Flame className="h-4 w-4 text-red-600" />
+                  <span>Pain Points da Attaccare ({(lead.pain_signals || []).length})</span>
+                </div>
+                {(lead.pain_signals || []).map((p) => (
+                  <div key={p.id} className="rounded-md border border-red-200 border-l-4 border-l-red-600 bg-red-50/70 p-2.5 space-y-1">
+                    <div className="text-[12px] font-semibold text-red-900">{p.title}</div>
+                    <div className="text-[11px] text-slate-700">{p.description}</div>
+                    {p.attack_angle && (
+                      <div className="text-[11px] font-medium text-red-800">Attacco: {p.attack_angle}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-800">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <span>Weak Points ({(lead.weak_points || []).length})</span>
+                </div>
+                {(lead.weak_points || []).map((w) => (
+                  <div key={w.id} className="rounded-md border border-amber-200 border-l-4 border-l-amber-500 bg-amber-50/70 p-2.5 space-y-1">
+                    <div className="text-[12px] font-semibold text-amber-900">{w.title}</div>
+                    <div className="text-[11px] text-slate-700">{w.description}</div>
+                    {w.evidence && <div className="text-[10px] text-amber-800">{w.evidence}</div>}
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-800">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span>Strengths — Punti di Forza ({(lead.strengths || []).length})</span>
+                </div>
+                {(lead.strengths || []).map((s) => (
+                  <div key={s.id} className="rounded-md border border-emerald-200 border-l-4 border-l-emerald-600 bg-emerald-50/70 p-2.5 space-y-1">
+                    <div className="text-[12px] font-semibold text-emerald-900">{s.title}</div>
+                    <div className="text-[11px] text-slate-700">{s.description}</div>
+                    {s.evidence && <div className="text-[10px] text-emerald-800">{s.evidence}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {tab === "audit" && (

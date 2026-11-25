@@ -96,3 +96,46 @@ def test_icebreaker_honest_cna_50_percent_and_gdpr_footer():
     assert "CANCELLAMI" in row["Messaggio_WhatsApp_Completo"]
     assert "privacy@tecnicolive.it" in row["Messaggio_WhatsApp_Completo"]
     assert "IT06200390877" in row["Messaggio_WhatsApp_Completo"]
+    assert row["Dimensione_Stimata"] == "Società di Capitali (S.r.l. / S.p.A.)"
+    assert int(row["Pain_Points_Count"]) >= 1
+    assert "TecnicoLIVE" in row["Piano_Consigliato"]
+
+
+def test_swot_analyzer_detects_meta_pixel_and_company_size():
+    from engine.enrichment.swot_analyzer import analyze_lead_swot_and_brief
+
+    res = analyze_lead_swot_and_brief(
+        company_name="Clima Tech Etna S.r.l.",
+        city="Catania",
+        niche="HVAC & Climatizzazione",
+        phone_e164="+393471234567",
+        phone_type="Mobile",
+        website="https://www.climatechetna.it",
+        has_valid_piva=True,
+        cna_status="NON ASSOCIATO",
+        brands=["Daikin", "Vaillant"],
+        is_h24=True,
+        http_status=200,
+        has_ssl=True,
+        cms_stack="WordPress",
+        tracking_pixels=["Meta Pixel", "Google Analytics 4"],
+        has_whatsapp_cta=False,
+        has_booking_or_quote_form=False,
+        employees_count=12,
+        recommended_product="tecnicolive",
+        recommended_product_name="TecnicoLIVE",
+    )
+
+    strength_ids = {s.id for s in res["strengths"]}
+    pain_ids = {p.id for p in res["pain_signals"]}
+    weak_ids = {w.id for w in res["weak_points"]}
+
+    assert "str_ads_active" in strength_ids
+    assert "str_structured" in strength_ids
+    assert "str_brands" in strength_ids
+    assert "pain_ads_leak" in pain_ids
+    assert "pain_h24_missed" in pain_ids
+    assert "weak_no_wa" in weak_ids
+    assert "Meta Pixel" in res["sales_brief"].why_sell
+    assert "12 dipendenti" in res["company_size_label"]
+    assert "Business" in res["sales_brief"].recommended_plan

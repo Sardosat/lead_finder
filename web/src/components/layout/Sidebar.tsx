@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Archive,
-  FlaskConical,
   FolderSearch,
   LayoutDashboard,
   LogOut,
@@ -41,7 +40,7 @@ export const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Mercato & Vendita",
     items: [
-      { label: "Trend Finder", href: "/trends", icon: TrendingUp },
+      { label: "Social & Market Radar", href: "/trends", icon: TrendingUp },
       { label: "Sales Hub & Bozze", href: "/outreach", icon: MessageSquareText },
       { label: "Archivio Export", href: "/exports", icon: Archive },
     ],
@@ -49,7 +48,6 @@ export const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Sistema",
     items: [
-      { label: "Verifica & Clay Lab", href: "/strumenti", icon: FlaskConical },
       { label: "GDPR & Blacklist", href: "/compliance", icon: ShieldCheck },
       { label: "Impostazioni", href: "/impostazioni", icon: Settings },
     ],

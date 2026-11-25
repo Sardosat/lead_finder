@@ -234,6 +234,33 @@ export function SmartLeadsTable({
         },
       },
       {
+        id: "swot_signals",
+        header: () => (
+          <span className="font-semibold text-[11px] uppercase tracking-wide text-[var(--text-muted)]">
+            Pain / Weak / Forza
+          </span>
+        ),
+        cell: ({ row }) => {
+          const ld = row.original;
+          const pCount = ld.pain_count ?? ld.pain_signals?.length ?? 0;
+          const wCount = ld.weak_count ?? ld.weak_points?.length ?? 0;
+          const sCount = ld.strength_count ?? ld.strengths?.length ?? 0;
+          return (
+            <div className="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold tabular-nums">
+              <span className="rounded bg-red-50 border border-red-200 px-1.5 py-0.5 text-red-700" title="Pain Points">
+                {pCount}P
+              </span>
+              <span className="rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-amber-800" title="Weak Points">
+                {wCount}W
+              </span>
+              <span className="rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-emerald-800" title="Strengths">
+                {sCount}S
+              </span>
+            </div>
+          );
+        },
+      },
+      {
         id: "icp_score",
         accessorKey: "icp_score",
         header: () => renderSortHeader("ICP / Tier", "icp_score"),

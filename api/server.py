@@ -42,6 +42,7 @@ from engine.connectors.openapi_italy import OpenapiItalyClient
 from engine.connectors.vies_validator import ViesValidatorClient
 from engine.enrichment.pipeline_runner import EnrichmentPipelineRunner
 from engine.enrichment.tech_audit import TechAuditor
+from engine.intelligence.market_radar import MarketRadarService
 from engine.routing.product_router import PRODUCT_CATALOG, route_lead_to_product
 from engine.schemas.campaign import CampaignConfig, EnrichmentLevels, GeoFilter, UpsellProduct
 from engine.schemas.lead import LeadRecord
@@ -962,6 +963,36 @@ async def api_list_leads(
     start = (safe_page - 1) * page_size
     items = filtered[start : start + page_size]
 
+    pain_counter: Counter[str] = Counter()
+    pain_meta: Dict[str, Dict[str, str]] = {}
+    weak_counter: Counter[str] = Counter()
+    weak_meta: Dict[str, str] = {}
+    strength_counter: Counter[str] = Counter()
+    strength_meta: Dict[str, str] = {}
+    prod_counter: Counter[str] = Counter()
+    size_counter: Counter[str] = Counter()
+
+    for x in filtered:
+        for p in x.get("pain_signals") or []:
+            t = p.get("title") or ""
+            if t:
+                pain_counter[t] += 1
+                pain_meta.setdefault(t, {"category": p.get("category", ""), "attack_angle": p.get("attack_angle", "")})
+        for w in x.get("weak_points") or []:
+            t = w.get("title") or ""
+            if t:
+                weak_counter[t] += 1
+                weak_meta.setdefault(t, w.get("category", ""))
+        for s in x.get("strengths") or []:
+            t = s.get("title") or ""
+            if t:
+                strength_counter[t] += 1
+                strength_meta.setdefault(t, s.get("category", ""))
+        prod_key = x.get("recommended_product") or "rsksystem"
+        prod_counter[prod_key] += 1
+        sz = x.get("company_size_label") or "Ditta Individuale / Artigiano"
+        size_counter[sz] += 1
+
     return {
         "search_id": search_id,
         "items": items,
@@ -975,6 +1006,32 @@ async def api_list_leads(
             "filtered_valid_piva": sum(1 for x in filtered if x["has_valid_piva"]),
             "filtered_tier_ab": sum(1 for x in filtered if x["tier_code"] in ("A", "B")),
             "filtered_lia_pass": sum(1 for x in filtered if x["lia_status"] == "PASS"),
+        },
+        "insights": {
+            "top_pain_points": [
+                {"title": k, "count": v, **pain_meta.get(k, {})}
+                for k, v in pain_counter.most_common(8)
+            ],
+            "top_weak_points": [
+                {"title": k, "count": v, "category": weak_meta.get(k, "")}
+                for k, v in weak_counter.most_common(8)
+            ],
+            "top_strengths": [
+                {"title": k, "count": v, "category": strength_meta.get(k, "")}
+                for k, v in strength_counter.most_common(8)
+            ],
+            "product_breakdown": [
+                {
+                    "product_key": k,
+                    "product_name": PRODUCT_CATALOG.get(k, PRODUCT_CATALOG["rsksystem"])["name"],
+                    "count": v,
+                }
+                for k, v in prod_counter.most_common()
+            ],
+            "size_breakdown": [{"label": k, "count": v} for k, v in size_counter.most_common()],
+            "avg_pain_per_lead": round(sum(len(x.get("pain_signals") or []) for x in filtered) / total, 1) if total else 0.0,
+            "avg_weak_per_lead": round(sum(len(x.get("weak_points") or []) for x in filtered) / total, 1) if total else 0.0,
+            "avg_strength_per_lead": round(sum(len(x.get("strengths") or []) for x in filtered) / total, 1) if total else 0.0,
         },
     }
 
@@ -1419,3 +1476,79 @@ async def api_settings_status(user: Dict[str, Any] = Depends(require_auth)):
         "cna_first_year_discount_pct": CNA_FIRST_YEAR_DISCOUNT_PCT,
         "products": list(PRODUCT_CATALOG.values()),
     }
+
+
+# ── SOCIAL & MARKET RADAR (TREND, FB LEADS, BANDI/FIERE, POST AI) ─────────────
+
+class RadarTrendsRequest(BaseModel):
+    search_id: str = "ds-master-clean"
+    niche: str = "termoidraulica"
+    geography: str = "sicilia"
+    timeframe: str = "30d"
+
+
+class RadarFacebookRequest(BaseModel):
+    search_id: str = "ds-master-clean"
+    niche: str = "all"
+    limit: int = Field(default=12, ge=1, le=30)
+
+
+class RadarSectorNewsRequest(BaseModel):
+    niche: str = "termoidraulica"
+    geography: str = "sicilia"
+    category: str = "all"
+
+
+class RadarSocialPostsRequest(BaseModel):
+    topic: str = Field(..., min_length=3)
+    niche: str = "termoidraulica"
+    geography: str = "sicilia"
+    tone: str = "Tecnico-Pratico (da cantiere)"
+    target_platform: Optional[str] = None
+    instruction: str = ""
+
+
+@app.post("/radar/trends")
+async def api_radar_trends(req: RadarTrendsRequest, _user: Dict[str, Any] = Depends(require_auth)):
+    leads = load_search_leads(req.search_id)
+    radar = MarketRadarService()
+    return await radar.discover_trends(
+        leads=leads,
+        niche=req.niche,
+        geography=req.geography,
+        timeframe=req.timeframe,
+    )
+
+
+@app.post("/radar/facebook-leads")
+async def api_radar_facebook_leads(req: RadarFacebookRequest, _user: Dict[str, Any] = Depends(require_auth)):
+    leads = load_search_leads(req.search_id)
+    radar = MarketRadarService()
+    return await radar.analyze_lead_facebook_pages(
+        leads=leads,
+        niche=req.niche,
+        limit=req.limit,
+    )
+
+
+@app.post("/radar/sector-news")
+async def api_radar_sector_news(req: RadarSectorNewsRequest, _user: Dict[str, Any] = Depends(require_auth)):
+    radar = MarketRadarService()
+    return await radar.fetch_sector_news(
+        niche=req.niche,
+        geography=req.geography,
+        category=req.category,
+    )
+
+
+@app.post("/radar/social-posts")
+async def api_radar_social_posts(req: RadarSocialPostsRequest, _user: Dict[str, Any] = Depends(require_auth)):
+    radar = MarketRadarService()
+    return await radar.generate_social_posts(
+        topic=req.topic,
+        niche=req.niche,
+        geography=req.geography,
+        tone=req.tone,
+        target_platform=req.target_platform,
+        instruction=req.instruction,
+    )

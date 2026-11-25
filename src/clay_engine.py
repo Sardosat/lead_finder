@@ -309,6 +309,18 @@ def enrich_dataset_with_clay_engine(df: pd.DataFrame) -> pd.DataFrame:
     icebreaker_list: List[str] = []
     gdpr_footer_list: List[str] = []
     wa_full_list: List[str] = []
+    size_list: List[str] = []
+    pain_count_list: List[int] = []
+    weak_count_list: List[int] = []
+    strength_count_list: List[int] = []
+    pain_summary_list: List[str] = []
+    weak_summary_list: List[str] = []
+    strength_summary_list: List[str] = []
+    sales_brief_list: List[str] = []
+    plan_list: List[str] = []
+
+    from engine.enrichment.swot_analyzer import analyze_lead_swot_and_brief
+    from engine.routing.product_router import route_lead_to_product
 
     for _, row in df_out.iterrows():
         comp_name = str(row.get("Company Name", "")).strip()
@@ -317,6 +329,9 @@ def enrich_dataset_with_clay_engine(df: pd.DataFrame) -> pd.DataFrame:
         stato_cna = str(row.get("Stato_CNA", "")).strip()
         category = str(row.get("Category", "")).strip()
         website_text = str(row.get("Website_Text_Snippet", "")).strip()
+        website = str(row.get("Website", "")).strip()
+        email = str(row.get("Email", "")).strip()
+        piva = str(row.get("Partita_IVA", "")).strip()
 
         text_corpus = f"{comp_name} {niche} {category} {city}"
         sem = extract_semantic_signals(text_corpus, comp_name, niche, website_text=website_text)
@@ -333,6 +348,41 @@ def enrich_dataset_with_clay_engine(df: pd.DataFrame) -> pd.DataFrame:
         sc = calculate_lead_score(row_dict)
         score_list.append(sc["score"])
         tier_list.append(sc["tier"])
+
+        routed = route_lead_to_product(
+            company_name=comp_name,
+            category=category,
+            niche=niche,
+            website_text=website_text,
+        )
+        p1, _ = normalize_phone_e164(str(row.get("Phone", "")).strip())
+        swot = analyze_lead_swot_and_brief(
+            company_name=comp_name,
+            city=city,
+            niche=niche,
+            category=category,
+            phone_e164=p1,
+            phone_type="Mobile" if is_mobile_e164(p1) else ("Fisso" if p1 else "Unknown"),
+            email=email,
+            website=website if is_valid_company_website(website) else "",
+            has_valid_piva=bool(piva and validate_piva(piva)),
+            cna_status=stato_cna,
+            brands=sem["marchi"],
+            certifications=[c.strip() for c in sem["certificazioni"].split(",") if c.strip() and c.strip() != "Non rilevate"],
+            is_h24=sem["is_h24"],
+            has_ssl=website.startswith("https://") if is_valid_company_website(website) else False,
+            recommended_product=routed["product_key"],
+            recommended_product_name=routed["product_name"],
+        )
+        size_list.append(swot["company_size_label"])
+        pain_count_list.append(len(swot["pain_signals"]))
+        weak_count_list.append(len(swot["weak_points"]))
+        strength_count_list.append(len(swot["strengths"]))
+        pain_summary_list.append(" | ".join(p.title for p in swot["pain_signals"]))
+        weak_summary_list.append(" | ".join(w.title for w in swot["weak_points"]))
+        strength_summary_list.append(" | ".join(s.title for s in swot["strengths"]))
+        sales_brief_list.append(swot["sales_brief"].why_sell)
+        plan_list.append(swot["sales_brief"].recommended_plan)
 
         ib = generate_dynamic_icebreaker(
             comp_name=comp_name,
@@ -355,6 +405,15 @@ def enrich_dataset_with_clay_engine(df: pd.DataFrame) -> pd.DataFrame:
     df_out["Trigger_Segnale"] = trigger_list
     df_out["ICP_Score"] = score_list
     df_out["Lead_Tier"] = tier_list
+    df_out["Dimensione_Stimata"] = size_list
+    df_out["Pain_Points_Count"] = pain_count_list
+    df_out["Weak_Points_Count"] = weak_count_list
+    df_out["Strengths_Count"] = strength_count_list
+    df_out["Pain_Points_Sintesi"] = pain_summary_list
+    df_out["Weak_Points_Sintesi"] = weak_summary_list
+    df_out["Strengths_Sintesi"] = strength_summary_list
+    df_out["Piano_Consigliato"] = plan_list
+    df_out["Cosa_Vendere_E_Perche"] = sales_brief_list
     df_out["Icebreaker_1to1"] = icebreaker_list
     df_out["Footer_GDPR_OptOut"] = gdpr_footer_list
     df_out["Messaggio_WhatsApp_Completo"] = wa_full_list

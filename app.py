@@ -72,7 +72,11 @@ def load_data(dataset_path_str: str) -> pd.DataFrame:
             return pd.DataFrame()
 
     df = pd.read_csv(path, dtype=str).fillna("")
-    if not df.empty and ("ICP_Score" not in df.columns or "Marchi_Verificati" not in df.columns):
+    if not df.empty and (
+        "ICP_Score" not in df.columns
+        or "Marchi_Verificati" not in df.columns
+        or "Cosa_Vendere_E_Perche" not in df.columns
+    ):
         df = enrich_dataset_with_clay_engine(df)
     return df
 
@@ -208,100 +212,284 @@ with tab_leads:
         filtered_df = filtered_df.reset_index(drop=True)
         st.caption(f"Visualizzati **{len(filtered_df)}** risultati su {totale} totali.")
 
-        # Tabella Lead Interattiva
-        display_cols = [
-            "Company Name",
-            "Nicchia_Target",
-            "City",
-            "Phone",
-            "Lead_Tier",
-            "ICP_Score",
-            "Marchi_Rilevati",
-            "Stato_CNA",
-        ]
-        available_cols = [c for c in display_cols if c in filtered_df.columns]
-        st.dataframe(
-            filtered_df[available_cols],
-            width="stretch",
-            hide_index=True,
-            column_config={
-                "Company Name": st.column_config.TextColumn("Ragione Sociale", width="medium"),
-                "Nicchia_Target": st.column_config.TextColumn("Settore", width="small"),
-                "City": st.column_config.TextColumn("Comune", width="small"),
-                "Phone": st.column_config.TextColumn("Telefono (E.164)", width="small"),
-                "Lead_Tier": st.column_config.TextColumn("Tier Clay", width="small"),
-                "ICP_Score": st.column_config.NumberColumn("Score (0-100)", width="small"),
-                "Marchi_Rilevati": st.column_config.TextColumn("Marchi Rilevati (Reali)", width="medium"),
-                "Stato_CNA": st.column_config.TextColumn("Stato CNA", width="small"),
-            },
-        )
+        sub_tab_table, sub_tab_swot = st.tabs([
+            "📋 Tabella & Scheda Lead",
+            "🎯 Pain Points, Weak & Forza (Pre-Call)",
+        ])
 
-        # Ispettore Lead Univoco per Indice (gestisce correttamente omonimi)
-        st.markdown("### 📋 Scheda Dettaglio Lead, Segnali Verificati & Messaggi Conformi GDPR")
-        if not filtered_df.empty:
-            selected_idx = st.selectbox(
-                "Seleziona un'azienda per visualizzare l'icebreaker dedicato e il messaggio WhatsApp conforme:",
-                options=list(range(len(filtered_df))),
-                format_func=lambda idx: (
-                    f"{filtered_df.iloc[idx].get('Company Name', '')} — "
-                    f"{filtered_df.iloc[idx].get('City', '')} "
-                    f"({filtered_df.iloc[idx].get('Partita_IVA') or 'P.IVA N/D'})"
-                ),
+        with sub_tab_table:
+            # Tabella Lead Interattiva
+            display_cols = [
+                "Company Name",
+                "Nicchia_Target",
+                "City",
+                "Phone",
+                "Lead_Tier",
+                "ICP_Score",
+                "Dimensione_Stimata",
+                "Pain_Points_Count",
+                "Marchi_Rilevati",
+                "Stato_CNA",
+            ]
+            available_cols = [c for c in display_cols if c in filtered_df.columns]
+            st.dataframe(
+                filtered_df[available_cols],
+                width="stretch",
+                hide_index=True,
+                column_config={
+                    "Company Name": st.column_config.TextColumn("Ragione Sociale", width="medium"),
+                    "Nicchia_Target": st.column_config.TextColumn("Settore", width="small"),
+                    "City": st.column_config.TextColumn("Comune", width="small"),
+                    "Phone": st.column_config.TextColumn("Telefono (E.164)", width="small"),
+                    "Lead_Tier": st.column_config.TextColumn("Tier Clay", width="small"),
+                    "ICP_Score": st.column_config.NumberColumn("Score (0-100)", width="small"),
+                    "Dimensione_Stimata": st.column_config.TextColumn("Dimensione", width="small"),
+                    "Pain_Points_Count": st.column_config.NumberColumn("Pain", width="small"),
+                    "Marchi_Rilevati": st.column_config.TextColumn("Marchi Rilevati (Reali)", width="medium"),
+                    "Stato_CNA": st.column_config.TextColumn("Stato CNA", width="small"),
+                },
             )
-            selected_row = filtered_df.iloc[selected_idx]
 
-            box_col1, box_col2 = st.columns([1, 2])
-            with box_col1:
-                st.markdown(f"**Azienda:** {selected_row.get('Company Name')}")
-                st.markdown(f"**Settore:** {selected_row.get('Nicchia_Target')}")
-                st.markdown(f"**Comune:** {selected_row.get('City')}")
-                st.markdown(f"**Telefono E.164:** `{selected_row.get('Phone') or 'Non rilevato'}`")
-                if selected_row.get("Phone_Secondary"):
-                    st.markdown(f"**Altri Telefoni:** `{selected_row.get('Phone_Secondary')}`")
-                st.markdown(f"**P.IVA:** `{selected_row.get('Partita_IVA') or 'Non rilevata'}`")
-                if selected_row.get("Email"):
-                    st.markdown(f"**Email:** `{selected_row.get('Email')}`")
-                if selected_row.get("Website"):
-                    st.markdown(f"**Sito Aziendale Reale:** [{selected_row.get('Website')}]({selected_row.get('Website')})")
-                else:
-                    st.markdown("**Sito Aziendale:** `Non rilevato`")
+            # Ispettore Lead Univoco per Indice (gestisce correttamente omonimi)
+            st.markdown("### 📋 Scheda Dettaglio Lead, Segnali Verificati & Messaggi Conformi GDPR")
+            if not filtered_df.empty:
+                selected_idx = st.selectbox(
+                    "Seleziona un'azienda per visualizzare l'icebreaker dedicato e il messaggio WhatsApp conforme:",
+                    options=list(range(len(filtered_df))),
+                    format_func=lambda idx: (
+                        f"{filtered_df.iloc[idx].get('Company Name', '')} — "
+                        f"{filtered_df.iloc[idx].get('City', '')} "
+                        f"({filtered_df.iloc[idx].get('Partita_IVA') or 'P.IVA N/D'})"
+                    ),
+                )
+                selected_row = filtered_df.iloc[selected_idx]
+
+                box_col1, box_col2 = st.columns([1, 2])
+                with box_col1:
+                    st.markdown(f"**Azienda:** {selected_row.get('Company Name')}")
+                    st.markdown(f"**Settore:** {selected_row.get('Nicchia_Target')}")
+                    st.markdown(f"**Dimensione:** `{selected_row.get('Dimensione_Stimata') or 'PMI'}`")
+                    st.markdown(f"**Comune:** {selected_row.get('City')}")
+                    st.markdown(f"**Telefono E.164:** `{selected_row.get('Phone') or 'Non rilevato'}`")
+                    if selected_row.get("Phone_Secondary"):
+                        st.markdown(f"**Altri Telefoni:** `{selected_row.get('Phone_Secondary')}`")
+                    st.markdown(f"**P.IVA:** `{selected_row.get('Partita_IVA') or 'Non rilevata'}`")
+                    if selected_row.get("Email"):
+                        st.markdown(f"**Email:** `{selected_row.get('Email')}`")
+                    if selected_row.get("Website"):
+                        st.markdown(f"**Sito Aziendale Reale:** [{selected_row.get('Website')}]({selected_row.get('Website')})")
+                    else:
+                        st.markdown("**Sito Aziendale:** `Non rilevato`")
+
+                    st.markdown("---")
+                    st.markdown(f"🏆 **Tier ICP:** `{selected_row.get('Lead_Tier', 'Tier C')}`")
+                    st.markdown(f"📊 **Score:** **{selected_row.get('ICP_Score', '0')}/100**")
+                    st.markdown(
+                        f"🔧 **Marchi Rilevati:** {selected_row.get('Marchi_Rilevati') or 'Non rilevato'} "
+                        f"(Verificati: `{selected_row.get('Marchi_Verificati', 'NO')}`)"
+                    )
+                    st.markdown(f"📜 **Certificazioni:** {selected_row.get('Certificazioni_Rilevate') or 'Non rilevate'}")
+                    st.markdown(f"🚨 **Reperibilità H24:** {selected_row.get('Servizio_H24', 'NO (Orario Ufficio)')}")
+                    st.markdown(f"⚡ **Trigger d'Intento:** {selected_row.get('Trigger_Segnale', 'N/D')}")
+
+                with box_col2:
+                    st.info(f"**Stato CNA:** {selected_row.get('Stato_CNA')}")
+                    if selected_row.get("Cosa_Vendere_E_Perche"):
+                        st.success(
+                            f"🎯 **Cosa Vendere ({selected_row.get('Piano_Consigliato', '')}):** "
+                            f"{selected_row.get('Cosa_Vendere_E_Perche')}"
+                        )
+
+                    st.markdown("#### 🎯 Icebreaker 1-to-1 Dinamico (Solo Dati Verificati)")
+                    icebreaker_val = selected_row.get("Icebreaker_1to1") or (
+                        f"Buongiorno {selected_row.get('Company Name')}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
+                        f"Per le imprese di {selected_row.get('Nicchia_Target')} a {selected_row.get('City')}, con la convenzione "
+                        f"CNA Catania attivate l'assistente vocale AI e l'associazione a CNA al 50% per il primo anno."
+                    )
+                    st.text_area("Gancio Conversazionale (Telefonico):", value=icebreaker_val, height=115)
+
+                    wa_full_val = selected_row.get("Messaggio_WhatsApp_Completo") or format_full_whatsapp_draft(icebreaker_val)
+                    st.text_area(
+                        "Bozza WhatsApp Completa (Conforme GDPR — Mittente + Opt-Out):",
+                        value=wa_full_val,
+                        height=155,
+                    )
+
+            # Download button
+            st.download_button(
+                label="📥 Scarica Lista Filtrata (CSV UTF-8)",
+                data=filtered_df.to_csv(index=False, encoding="utf-8-sig"),
+                file_name="lead_filtrate_tecnicolive_catania.csv",
+                mime="text/csv",
+            )
+
+        with sub_tab_swot:
+            st.markdown("### 🎯 Analisi Pre-Chiamata: Pain Points, Punti Deboli & Punti di Forza")
+            st.caption(
+                "Grafici aggregati sui risultati filtrati e dossier a icone colorate per sapere esattamente "
+                "cosa vendere e perché prima di alzare il telefono (dati reali — Zero Hallucination)."
+            )
+
+            if filtered_df.empty:
+                st.info("Nessun lead nei filtri correnti.")
+            else:
+                from collections import Counter
+                from engine.enrichment.swot_analyzer import analyze_lead_swot_and_brief
+                from engine.routing.product_router import route_lead_to_product
+                from src.normalizers import is_mobile_e164, is_valid_company_website, normalize_phone_e164
+                from src.piva_validator import validate_piva
+
+                # Aggregazione dati reali per grafici
+                pain_agg: Counter = Counter()
+                weak_agg: Counter = Counter()
+                strength_agg: Counter = Counter()
+                size_agg: Counter = Counter()
+
+                for _, r_item in filtered_df.iterrows():
+                    for pt in str(r_item.get("Pain_Points_Sintesi", "")).split(" | "):
+                        if pt.strip():
+                            pain_agg[pt.strip()] += 1
+                    for wk in str(r_item.get("Weak_Points_Sintesi", "")).split(" | "):
+                        if wk.strip():
+                            weak_agg[wk.strip()] += 1
+                    for st_item in str(r_item.get("Strengths_Sintesi", "")).split(" | "):
+                        if st_item.strip():
+                            strength_agg[st_item.strip()] += 1
+                    sz_val = str(r_item.get("Dimensione_Stimata", "")).strip() or "Ditta Individuale / Artigiano"
+                    size_agg[sz_val] += 1
+
+                ch1, ch2, ch3 = st.columns(3)
+                with ch1:
+                    st.markdown("#### 🔥 Top Pain Points da Attaccare")
+                    if pain_agg:
+                        df_p = pd.DataFrame(pain_agg.most_common(6), columns=["Pain Point", "Aziende"]).set_index("Pain Point")
+                        st.bar_chart(df_p, color="#EF4444")
+                with ch2:
+                    st.markdown("#### ⚠️ Punti Deboli Più Diffusi")
+                    if weak_agg:
+                        df_w = pd.DataFrame(weak_agg.most_common(6), columns=["Weak Point", "Aziende"]).set_index("Weak Point")
+                        st.bar_chart(df_w, color="#F59E0B")
+                with ch3:
+                    st.markdown("#### 💪 Punti di Forza & Dimensione")
+                    if strength_agg:
+                        df_s = pd.DataFrame(strength_agg.most_common(6), columns=["Strength", "Aziende"]).set_index("Strength")
+                        st.bar_chart(df_s, color="#10B981")
+
+                if size_agg:
+                    st.markdown("#### 🏢 Ripartizione Dimensionale dei Lead in Vista")
+                    df_sz = pd.DataFrame(size_agg.most_common(), columns=["Dimensione", "Aziende"]).set_index("Dimensione")
+                    st.bar_chart(df_sz, color="#2563EB", horizontal=True)
 
                 st.markdown("---")
-                st.markdown(f"🏆 **Tier ICP:** `{selected_row.get('Lead_Tier', 'Tier C')}`")
-                st.markdown(f"📊 **Score:** **{selected_row.get('ICP_Score', '0')}/100**")
+                st.markdown("### 🔎 Dossier Pre-Chiamata del Singolo Lead")
+                swot_idx = st.selectbox(
+                    "Scegli il lead da preparare prima della chiamata:",
+                    options=list(range(len(filtered_df))),
+                    key="swot_lead_select",
+                    format_func=lambda idx: (
+                        f"{filtered_df.iloc[idx].get('Company Name', '')} — "
+                        f"{filtered_df.iloc[idx].get('City', '')} "
+                        f"({filtered_df.iloc[idx].get('Lead_Tier', 'Tier C')})"
+                    ),
+                )
+                s_row = filtered_df.iloc[swot_idx]
+                s_comp = str(s_row.get("Company Name", "")).strip()
+                s_niche = str(s_row.get("Nicchia_Target", "")).strip()
+                s_cat = str(s_row.get("Category", "")).strip()
+                s_web = str(s_row.get("Website", "")).strip()
+                s_p1, _ = normalize_phone_e164(str(s_row.get("Phone", "")).strip())
+                s_routed = route_lead_to_product(
+                    company_name=s_comp,
+                    category=s_cat,
+                    niche=s_niche,
+                    website_text=str(s_row.get("Website_Text_Snippet", "")),
+                )
+                s_brands = [b.strip() for b in str(s_row.get("Marchi_Rilevati", "")).split(",") if b.strip() and b.strip() != "Non rilevato"]
+                s_certs = [c.strip() for c in str(s_row.get("Certificazioni_Rilevate", "")).split(",") if c.strip() and c.strip() != "Non rilevate"]
+                swot_detail = analyze_lead_swot_and_brief(
+                    company_name=s_comp,
+                    city=str(s_row.get("City", "")),
+                    niche=s_niche,
+                    category=s_cat,
+                    phone_e164=s_p1,
+                    phone_type="Mobile" if is_mobile_e164(s_p1) else ("Fisso" if s_p1 else "Unknown"),
+                    email=str(s_row.get("Email", "")).strip(),
+                    website=s_web if is_valid_company_website(s_web) else "",
+                    has_valid_piva=bool(str(s_row.get("Partita_IVA", "")).strip() and validate_piva(str(s_row.get("Partita_IVA", "")).strip())),
+                    cna_status=str(s_row.get("Stato_CNA", "")),
+                    brands=s_brands,
+                    certifications=s_certs,
+                    is_h24=str(s_row.get("Servizio_H24", "")).upper().startswith("SI"),
+                    has_ssl=s_web.startswith("https://") if is_valid_company_website(s_web) else False,
+                    recommended_product=s_routed["product_key"],
+                    recommended_product_name=s_routed["product_name"],
+                )
+                brief = swot_detail["sales_brief"]
+
                 st.markdown(
-                    f"🔧 **Marchi Rilevati:** {selected_row.get('Marchi_Rilevati') or 'Non rilevato'} "
-                    f"(Verificati: `{selected_row.get('Marchi_Verificati', 'NO')}`)"
-                )
-                st.markdown(f"📜 **Certificazioni:** {selected_row.get('Certificazioni_Rilevate') or 'Non rilevate'}")
-                st.markdown(f"🚨 **Reperibilità H24:** {selected_row.get('Servizio_H24', 'NO (Orario Ufficio)')}")
-                st.markdown(f"⚡ **Trigger d'Intento:** {selected_row.get('Trigger_Segnale', 'N/D')}")
-
-            with box_col2:
-                st.info(f"**Stato CNA:** {selected_row.get('Stato_CNA')}")
-
-                st.markdown("#### 🎯 Icebreaker 1-to-1 Dinamico (Solo Dati Verificati)")
-                icebreaker_val = selected_row.get("Icebreaker_1to1") or (
-                    f"Buongiorno {selected_row.get('Company Name')}, vi contatto da TecnicoLIVE (Sinergia Rete d'Imprese). "
-                    f"Per le imprese di {selected_row.get('Nicchia_Target')} a {selected_row.get('City')}, con la convenzione "
-                    f"CNA Catania attivate l'assistente vocale AI e l'associazione a CNA al 50% per il primo anno."
-                )
-                st.text_area("Gancio Conversazionale (Telefonico):", value=icebreaker_val, height=115)
-
-                wa_full_val = selected_row.get("Messaggio_WhatsApp_Completo") or format_full_whatsapp_draft(icebreaker_val)
-                st.text_area(
-                    "Bozza WhatsApp Completa (Conforme GDPR — Mittente + Opt-Out):",
-                    value=wa_full_val,
-                    height=155,
+                    f"""
+                <div style="background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border: 1px solid #93C5FD; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+                    <div style="font-size: 0.78rem; font-weight: 800; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.04em;">
+                        🎯 Cosa Vendere e Perché (Prima di Chiamare) · {brief.product_name}
+                    </div>
+                    <div style="font-size: 1.15rem; font-weight: 700; color: #0F172A; margin: 4px 0 8px 0;">
+                        💊 {brief.recommended_plan} &nbsp;|&nbsp; 🏢 {brief.company_size_label} &nbsp;|&nbsp; 💻 Tech: {brief.tech_maturity_label}
+                    </div>
+                    <div style="font-size: 0.92rem; color: #1E293B; margin-bottom: 8px;">{brief.why_sell}</div>
+                    <div style="font-size: 0.86rem; color: #7F1D1D; background: #FEF2F2; border-left: 3px solid #EF4444; padding: 6px 10px; border-radius: 4px; margin-bottom: 6px;">
+                        <strong>🔥 Pain Point #1 da Attaccare:</strong> {brief.primary_pain_to_attack}
+                    </div>
+                    <div style="font-size: 0.86rem; color: #065F46; background: #ECFDF5; border-left: 3px solid #10B981; padding: 6px 10px; border-radius: 4px; margin-bottom: 6px;">
+                        <strong>💪 Leva sul Punto di Forza:</strong> {brief.leverage_strength}
+                    </div>
+                    <div style="font-size: 0.85rem; color: #334155;">
+                        <strong>🛡️ Obiezione Attesa:</strong> {brief.expected_objection}
+                    </div>
+                </div>
+                """,
+                    unsafe_allow_html=True,
                 )
 
-        # Download button
-        st.download_button(
-            label="📥 Scarica Lista Filtrata (CSV UTF-8)",
-            data=filtered_df.to_csv(index=False, encoding="utf-8-sig"),
-            file_name="lead_filtrate_tecnicolive_catania.csv",
-            mime="text/csv",
-        )
+                col_p, col_w, col_s = st.columns(3)
+                with col_p:
+                    st.markdown("#### 🔴 Pain Points da Attaccare")
+                    for item in swot_detail["pain_signals"]:
+                        st.markdown(
+                            f"""
+                        <div style="background:#FEF2F2; border:1px solid #FECACA; border-left:4px solid #DC2626; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+                            <div style="font-weight:700; color:#991B1B; font-size:0.9rem;">🔥 {item.title}</div>
+                            <div style="font-size:0.82rem; color:#374151; margin:4px 0;">{item.description}</div>
+                            <div style="font-size:0.76rem; color:#7F1D1D;"><strong>Attacco:</strong> {item.attack_angle}</div>
+                        </div>
+                        """,
+                            unsafe_allow_html=True,
+                        )
+                with col_w:
+                    st.markdown("#### 🟠 Weak Points (Punti Deboli)")
+                    for item in swot_detail["weak_points"]:
+                        st.markdown(
+                            f"""
+                        <div style="background:#FFFBEB; border:1px solid #FDE68A; border-left:4px solid #D97706; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+                            <div style="font-weight:700; color:#92400E; font-size:0.9rem;">⚠️ {item.title}</div>
+                            <div style="font-size:0.82rem; color:#374151; margin:4px 0;">{item.description}</div>
+                            <div style="font-size:0.75rem; color:#78350F;"><em>Evidenza: {item.evidence}</em></div>
+                        </div>
+                        """,
+                            unsafe_allow_html=True,
+                        )
+                with col_s:
+                    st.markdown("#### 🟢 Strengths (Punti di Forza)")
+                    for item in swot_detail["strengths"]:
+                        st.markdown(
+                            f"""
+                        <div style="background:#ECFDF5; border:1px solid #A7F3D0; border-left:4px solid #059669; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+                            <div style="font-weight:700; color:#065F46; font-size:0.9rem;">✅ {item.title}</div>
+                            <div style="font-size:0.82rem; color:#374151; margin:4px 0;">{item.description}</div>
+                            <div style="font-size:0.75rem; color:#064E3B;"><em>Evidenza: {item.evidence}</em></div>
+                        </div>
+                        """,
+                            unsafe_allow_html=True,
+                        )
 
 
 # ==========================================

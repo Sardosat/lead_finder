@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from engine.compliance.lia_engine import DEFAULT_SUPPRESSION_CSV, SuppressionList, is_pec_email
+from engine.enrichment.swot_analyzer import analyze_lead_swot_and_brief
 from engine.routing.product_router import PRODUCT_CATALOG, route_lead_to_product
 from engine.schemas.lead import LeadRecord
 from src.clay_engine import format_full_whatsapp_draft
@@ -298,6 +299,31 @@ def _normalize_legacy_csv_row(
                 crawl_info = v if isinstance(v, dict) else {}
                 break
 
+    swot = analyze_lead_swot_and_brief(
+        company_name=company_name,
+        city=city,
+        niche=niche,
+        category=category,
+        phone_e164=p1,
+        phone_type=phone_type,
+        email=raw_email,
+        pec=pec_addr,
+        website=website,
+        has_valid_piva=has_valid_piva,
+        cna_status=cna_status,
+        brands=brands,
+        certifications=certifications,
+        is_h24=is_h24,
+        http_status=200 if crawl_info.get("crawl_status") == "SUCCESS" else 0,
+        has_ssl=website.startswith("https://") if website else False,
+        recommended_product=routed["product_key"],
+        recommended_product_name=routed["product_name"],
+    )
+    pain_dicts = [p.model_dump() for p in swot["pain_signals"]]
+    weak_dicts = [w.model_dump() for w in swot["weak_points"]]
+    strength_dicts = [s.model_dump() for s in swot["strengths"]]
+    brief_dict = swot["sales_brief"].model_dump()
+
     return {
         "id": f"{search_id}:{idx}",
         "lead_key": _lead_key(vat_raw, p1, company_name, city),
@@ -365,10 +391,19 @@ def _normalize_legacy_csv_row(
         "ai_qualification": {
             "model_used": "clay_engine_semantic",
             "business_model": "B2B/B2C",
-            "detected_pain_points": [trigger_signal] if trigger_signal else [],
+            "detected_pain_points": [p["title"] for p in pain_dicts] or ([trigger_signal] if trigger_signal else []),
             "evidence_quotes": brands,
             "outreach_angle": (row.get("Pitch_Commerciale_TecnicoLIVE") or routed["core_pitch"]).strip(),
         },
+        "pain_signals": pain_dicts,
+        "weak_points": weak_dicts,
+        "strengths": strength_dicts,
+        "sales_brief": brief_dict,
+        "pain_count": len(pain_dicts),
+        "weak_count": len(weak_dicts),
+        "strength_count": len(strength_dicts),
+        "company_size_label": swot["company_size_label"],
+        "tech_maturity_label": swot["tech_maturity_label"],
         "data_scoperta": (row.get("Data_Scoperta") or "").strip(),
     }
 
@@ -408,6 +443,56 @@ def _normalize_lead_record_dict(
     lia_status = "BLOCKED" if is_sup else str(lia.get("status") or ("PASS" if (p1 or raw_email) else "REVIEW_REQUIRED"))
     icebreaker = str(ai_q.get("icebreaker_1to1") or ai_q.get("outreach_angle") or "")
     wa_draft = format_full_whatsapp_draft(icebreaker or f"Buongiorno {company_name}, {prod['core_pitch']}")
+
+    has_valid_piva = bool(vat_id and validate_piva(vat_id))
+    phone_type = str(raw.get("phone_type") or ("Mobile" if is_mobile_e164(p1) else ("Fisso" if p1 else "Unknown")))
+    website_val = str(raw.get("website") or "")
+    niche_val = str(raw.get("niche") or raw.get("category") or "")
+    brands_val = list(ai_q.get("evidence_quotes") or [])
+    certs_val = list(reg.get("albi_certificazioni") or [])
+
+    if ai_q.get("pain_signals") or ai_q.get("sales_brief"):
+        pain_dicts = list(ai_q.get("pain_signals") or [])
+        weak_dicts = list(ai_q.get("weak_points") or [])
+        strength_dicts = list(ai_q.get("strengths") or [])
+        brief_dict = dict(ai_q.get("sales_brief") or {})
+        size_label = str(brief_dict.get("company_size_label") or "PMI / Da verificare")
+        tech_label = str(brief_dict.get("tech_maturity_label") or "Base")
+    else:
+        swot = analyze_lead_swot_and_brief(
+            company_name=company_name,
+            city=city,
+            niche=niche_val,
+            category=str(raw.get("category") or ""),
+            phone_e164=p1,
+            phone_type=phone_type,
+            email=raw_email,
+            email_mx_valid=raw.get("email_mx_valid") if raw.get("email_mx_valid") is not None else tech.get("email_mx_valid"),
+            pec=pec_addr,
+            website=website_val,
+            has_valid_piva=has_valid_piva,
+            vies_valid=reg.get("vies_valid"),
+            brands=brands_val,
+            certifications=certs_val,
+            http_status=int(tech.get("http_status") or 0),
+            has_ssl=bool(tech.get("has_ssl")),
+            cms_stack=str(tech.get("cms_stack") or "Unknown"),
+            tracking_pixels=list(tech.get("tracking_pixels") or []),
+            has_whatsapp_cta=bool(tech.get("has_whatsapp_cta")),
+            has_booking_or_quote_form=bool(tech.get("has_booking_or_quote_form")),
+            social_links=dict(tech.get("social_links") or {}),
+            employees_count=reg.get("employees_count"),
+            revenue_eur=reg.get("revenue_eur"),
+            forma_giuridica=str(reg.get("forma_giuridica") or ""),
+            recommended_product=prod["key"],
+            recommended_product_name=prod["name"],
+        )
+        pain_dicts = [p.model_dump() for p in swot["pain_signals"]]
+        weak_dicts = [w.model_dump() for w in swot["weak_points"]]
+        strength_dicts = [s.model_dump() for s in swot["strengths"]]
+        brief_dict = swot["sales_brief"].model_dump()
+        size_label = swot["company_size_label"]
+        tech_label = swot["tech_maturity_label"]
 
     return {
         "id": f"{search_id}:{idx}",
@@ -464,6 +549,15 @@ def _normalize_lead_record_dict(
         "suppressed": is_sup,
         "tech_audit": tech,
         "ai_qualification": ai_q,
+        "pain_signals": pain_dicts,
+        "weak_points": weak_dicts,
+        "strengths": strength_dicts,
+        "sales_brief": brief_dict,
+        "pain_count": len(pain_dicts),
+        "weak_count": len(weak_dicts),
+        "strength_count": len(strength_dicts),
+        "company_size_label": size_label,
+        "tech_maturity_label": tech_label,
         "data_scoperta": "",
     }
 

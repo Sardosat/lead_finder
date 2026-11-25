@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import type { VisibilityState } from "@tanstack/react-table";
 import {
   Ban,
+  BarChart3,
   ChevronLeft,
   ChevronRight,
   Columns3,
@@ -12,10 +13,12 @@ import {
   FileSpreadsheet,
   RotateCcw,
   Search,
+  TableProperties,
   Webhook,
 } from "lucide-react";
 import { ExportModal } from "@/components/exports/ExportModal";
 import { LeadInspectorDrawer } from "@/components/leads/LeadInspectorDrawer";
+import { SearchInsightsTab } from "@/components/leads/SearchInsightsTab";
 import { SmartLeadsTable } from "@/components/leads/SmartLeadsTable";
 import { api } from "@/lib/api";
 import { formatNumber } from "@/lib/formatters";
@@ -37,6 +40,7 @@ const COLUMN_LABELS: Record<string, string> = {
   email: "Email / Web",
   brands: "Marchi Reali",
   recommended_product: "Prodotto",
+  swot_signals: "Pain / Weak / Forza",
   icp_score: "ICP / Tier",
   lia_status: "GDPR LIA",
 };
@@ -72,6 +76,7 @@ function LeadFinderContent() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [inspectedLead, setInspectedLead] = useState<LeadItem | null>(null);
+  const [resultsTab, setResultsTab] = useState<"table" | "insights">("table");
 
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFmt, setExportFmt] = useState<"CSV" | "XLSX" | "WEBHOOK_JSON">("CSV");
@@ -451,22 +456,59 @@ function LeadFinderContent() {
         </div>
       </div>
 
-      {/* Smart Data Grid */}
-      <SmartLeadsTable
-        items={items}
-        loading={loading}
-        density={density}
-        columnVisibility={columnVisibility}
-        onColumnVisibilityChange={setColumnVisibility}
-        selectedIds={selectedIds}
-        onToggleSelect={toggleSelect}
-        onToggleSelectAllVisible={toggleSelectAllVisible}
-        onInspectLead={(ld) => setInspectedLead(ld)}
-        activeLeadId={inspectedLead?.id}
-        sortBy={sortBy}
-        sortDir={sortDir}
-        onSortChange={handleSortChange}
-      />
+      {/* Results Mode Tabs */}
+      <div className="flex items-center gap-2 border-b border-[var(--border-hairline)]">
+        <button
+          type="button"
+          onClick={() => setResultsTab("table")}
+          className={`inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-[12px] font-medium transition-colors ${
+            resultsTab === "table"
+              ? "border-[#1D4ED8] text-[#1D4ED8]"
+              : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+          }`}
+        >
+          <TableProperties className="h-3.5 w-3.5" />
+          <span>Tabella Risultati</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setResultsTab("insights")}
+          className={`inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-[12px] font-medium transition-colors ${
+            resultsTab === "insights"
+              ? "border-[#1D4ED8] text-[#1D4ED8]"
+              : "border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+          }`}
+        >
+          <BarChart3 className="h-3.5 w-3.5 text-red-600" />
+          <span>Pain Points, Weak &amp; Forza (Pre-Call)</span>
+        </button>
+      </div>
+
+      {resultsTab === "table" ? (
+        <SmartLeadsTable
+          items={items}
+          loading={loading}
+          density={density}
+          columnVisibility={columnVisibility}
+          onColumnVisibilityChange={setColumnVisibility}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onToggleSelectAllVisible={toggleSelectAllVisible}
+          onInspectLead={(ld) => setInspectedLead(ld)}
+          activeLeadId={inspectedLead?.id}
+          sortBy={sortBy}
+          sortDir={sortDir}
+          onSortChange={handleSortChange}
+        />
+      ) : (
+        <SearchInsightsTab
+          items={items}
+          insights={data?.insights}
+          total={data?.total || 0}
+          loading={loading}
+          onInspectLead={(ld) => setInspectedLead(ld)}
+        />
+      )}
 
       {/* Pagination Footer */}
       {data && (

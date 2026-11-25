@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, Field
 
 from engine.routing.product_router import PRODUCT_CATALOG, route_lead_to_product
+from engine.enrichment.swot_analyzer import analyze_lead_swot_and_brief
 from engine.schemas.lead import AIQualificationData, LeadRecord
 from src.clay_engine import extract_semantic_signals
 from src.config import ROOT_DIR
@@ -170,12 +171,46 @@ class GeminiQualifier:
             f"Prodotto ecosistema consigliato: {PRODUCT_CATALOG[prod_key]['name']}."
         )
 
+        swot = analyze_lead_swot_and_brief(
+            company_name=lead.company_name,
+            city=lead.city,
+            niche=lead.niche,
+            category=lead.category,
+            phone_e164=lead.phone_e164,
+            phone_type=lead.phone_type,
+            email=lead.email,
+            email_mx_valid=lead.email_mx_valid,
+            pec=lead.pec,
+            website=lead.website,
+            has_valid_piva=bool(lead.vat_id),
+            vies_valid=lead.registry.vies_valid,
+            brands=sem["marchi"],
+            certifications=[c.strip() for c in sem["certificazioni"].split(",") if c.strip() and c.strip() != "Non rilevate"],
+            is_h24=sem["is_h24"],
+            http_status=lead.tech_audit.http_status,
+            has_ssl=lead.tech_audit.has_ssl,
+            cms_stack=lead.tech_audit.cms_stack,
+            tracking_pixels=lead.tech_audit.tracking_pixels,
+            has_whatsapp_cta=lead.tech_audit.has_whatsapp_cta,
+            has_booking_or_quote_form=lead.tech_audit.has_booking_or_quote_form,
+            social_links=lead.tech_audit.social_links,
+            employees_count=lead.registry.employees_count,
+            revenue_eur=lead.registry.revenue_eur,
+            forma_giuridica=lead.registry.forma_giuridica,
+            recommended_product=prod_key,
+            recommended_product_name=PRODUCT_CATALOG[prod_key]["name"],
+        )
+
         return AIQualificationData(
             model_used="deterministic",
             business_model="B2B2C" if prod_key in ("tecnicolive", "rsksystem") else "B2B",
             company_summary=summary,
-            detected_pain_points=pain_points or ["Opportunità di automazione acquisizione e risposta rapida"],
+            detected_pain_points=pain_points or [p.title for p in swot["pain_signals"]] or ["Opportunità di automazione acquisizione e risposta rapida"],
             evidence_quotes=evidence,
+            pain_signals=swot["pain_signals"],
+            weak_points=swot["weak_points"],
+            strengths=swot["strengths"],
+            sales_brief=swot["sales_brief"],
             icp_fit_score=score,
             lead_tier=self._score_to_tier(score, has_contact),
             recommended_product=prod_key,
@@ -253,6 +288,10 @@ class GeminiQualifier:
                 company_summary=parsed.company_summary or det.company_summary,
                 detected_pain_points=parsed.detected_pain_points or det.detected_pain_points,
                 evidence_quotes=parsed.evidence_quotes or det.evidence_quotes,
+                pain_signals=det.pain_signals,
+                weak_points=det.weak_points,
+                strengths=det.strengths,
+                sales_brief=det.sales_brief,
                 icp_fit_score=score,
                 lead_tier=self._score_to_tier(score, has_contact),
                 recommended_product=det.recommended_product,
