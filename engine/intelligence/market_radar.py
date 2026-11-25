@@ -92,7 +92,7 @@ class _SocialBundlePayload(BaseModel):
 class MarketRadarService:
     """Servizio unificato per Radar Trend, Pagine FB Lead, Bandi/Fiere e Generazione Post AI."""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, model_name: str = "gemini-3.8-flash"):
         load_dotenv(ROOT_DIR / ".env", override=False)
         self.gemini_api_key = os.getenv("GEMINI_API_KEY", "").strip()
         self.serper_api_key = os.getenv("SERPER_API_KEY", "").strip()

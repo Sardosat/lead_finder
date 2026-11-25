@@ -39,7 +39,7 @@ class _GeminiStructuredResponse(BaseModel):
 class GeminiQualifier:
     """Qualificatore AI Livello 2 con Gemini 2.5 Flash Structured Outputs e fallback deterministico."""
 
-    def __init__(self, model_name: str = "gemini-2.5-flash"):
+    def __init__(self, model_name: str = "gemini-3.8-flash"):
         load_dotenv(ROOT_DIR / ".env", override=False)
         self.api_key = os.getenv("GEMINI_API_KEY", "").strip()
         self.model_name = model_name
